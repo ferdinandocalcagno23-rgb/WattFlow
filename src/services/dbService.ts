@@ -41,6 +41,10 @@ export async function getWorkoutsByProfile(profileId: number) {
   return await db.workouts.where('profileId').equals(profileId).reverse().sortBy('date');
 }
 
+export async function getWorkoutCountByProfile(profileId: number) {
+  return await db.workouts.where('profileId').equals(profileId).count();
+}
+
 export async function getProfiles() {
   return await db.profiles.toArray();
 }

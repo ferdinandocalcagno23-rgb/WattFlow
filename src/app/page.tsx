@@ -687,6 +687,23 @@ function App() {
     });
   };
 
+  const handleDownloadHistory = (workoutToDownload: WorkoutRecording) => {
+    // Lazy load the fitEncoder
+    import('@/lib/strava/fitEncoder').then(({ createTcxBlob }) => {
+      const tcxBlob = createTcxBlob(workoutToDownload);
+      const url = URL.createObjectURL(tcxBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${workoutToDownload.name.replace(/\s+/g, '_') || 'workout'}.tcx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }).catch(err => {
+      console.error("Failed to load fitEncoder for history download", err);
+    });
+  };
+
   const handleDiscardWorkout = () => {
     setShowSaveModal(false);
     bleService.setTargetPower(100);
@@ -1130,15 +1147,22 @@ function App() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-8 text-right">
-                    <div>
+                  <div className="flex gap-4 items-center">
+                    <div className="text-right">
                       <p className="text-[10px] text-gray-600 uppercase font-black mb-1">Duration</p>
                       <p className="text-sm font-bold text-gray-300">{formatTime(Math.round(workout.duration))}</p>
                     </div>
-                    <div>
+                    <div className="text-right">
                       <p className="text-[10px] text-gray-600 uppercase font-black mb-1">Avg Power</p>
                       <p className="text-sm font-bold text-neon-cyan">{workout.avgPower}W</p>
                     </div>
+                    <button
+                      onClick={() => handleDownloadHistory(workout)}
+                      className="p-3 bg-white/5 hover:bg-neon-blue/20 rounded-2xl text-gray-400 hover:text-neon-blue transition-all border border-white/5 hover:border-neon-blue/30"
+                      title="Download TCX"
+                    >
+                      <Download size={18} />
+                    </button>
                   </div>
                 </div>
               </div>
