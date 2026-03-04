@@ -11,6 +11,8 @@ import { useWorkoutRecorder } from '@/hooks/useWorkoutRecorder';
 import type { WorkoutRecording } from '@/services/dbService';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+// Development Mirror Branch
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
 
