@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bluetooth, Heart, Zap, Activity, Play, Pause, Plus, Trash2, Settings, Monitor, Save, Edit3, Clock, BarChart2, X, ChevronLeft, RotateCcw, Home, Gauge, Sliders, ArrowRight, SkipForward, BookOpen, XCircle, Eye, EyeOff, Download, ChevronsUpDown, PanelLeftClose, PanelRightClose, Minus, UploadCloud } from 'lucide-react';
+import { Bluetooth, Heart, Zap, Activity, Play, Pause, Plus, Trash2, Settings, Monitor, Save, Edit3, Clock, BarChart2, X, ChevronLeft, RotateCcw, Home, Gauge, Sliders, ArrowRight, SkipForward, BookOpen, XCircle, Eye, EyeOff, Download, ChevronsUpDown, PanelLeftClose, PanelRightClose, Minus, UploadCloud, User, LogOut } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { bleService } from '@/services/bleService';
@@ -8,13 +8,16 @@ import { TrainerData, HeartRateData, Workout, WorkoutSessionState, IntervalStep,
 import { ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis, Tooltip } from 'recharts';
 import { useWorkoutRecorder } from '@/hooks/useWorkoutRecorder';
 // import { SyncManager } from '@/components/SyncManager';
-import type { WorkoutRecording } from '@/services/dbService';
+import { WorkoutRecording, getWorkoutsByProfile } from '@/services/dbService';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 // Development Mirror Branch
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
+import { ProfileSelector } from '@/components/profile/ProfileSelector';
+import { UserProfile } from '@/types';
+import { setActiveProfileId } from '@/services/profileService';
 
 
 // --- New Component for Resistance Slider ---
@@ -208,6 +211,8 @@ function App() {
   const [session, setSession] = useState<WorkoutSessionState>({
     isActive: false, currentStepIndex: 0, elapsedTimeInStep: 0, totalElapsedTime: 0, isPaused: false, rawData: [], startTime: 0
   });
+  const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
+  const [userWorkouts, setUserWorkouts] = useState<WorkoutRecording[]>([]);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -246,7 +251,7 @@ function App() {
 
 
   // --- Hooks ---
-  const { isRecording, startRecording, stopRecording, addDatapoint } = useWorkoutRecorder(workout.name, workout.steps);
+  const { isRecording, startRecording, stopRecording, addDatapoint } = useWorkoutRecorder(workout.name, workout.steps, currentProfile?.id || null);
 
 
   // --- Effects ---
@@ -283,6 +288,27 @@ function App() {
     };
     bleService.setCallbacks(trainerCallback, hrCallback);
   }, [isTrainerConnected, isHRConnected]);
+
+  useEffect(() => {
+    if (currentProfile) {
+      setFtp(currentProfile.ftp);
+      setUserWeight(currentProfile.weight);
+      loadUserWorkouts();
+    }
+  }, [currentProfile]);
+
+  const loadUserWorkouts = async () => {
+    if (currentProfile?.id) {
+      const data = await getWorkoutsByProfile(currentProfile.id);
+      setUserWorkouts(data);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'HOME') {
+      loadUserWorkouts();
+    }
+  }, [view]);
 
 
   // Background audio hack
@@ -626,6 +652,7 @@ function App() {
     const avgPower = session.rawData.length > 0 ? Math.round(totalPower / session.rawData.length) : 0;
 
     const workoutToSave: Omit<WorkoutRecording, 'id' | 'status' | 'stravaId'> = {
+      profileId: currentProfile?.id || 0,
       name: workout.name,
       date: new Date(session.startTime),
       duration: session.totalElapsedTime,
@@ -1072,6 +1099,52 @@ function App() {
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* Workout History Log */}
+      <div className="w-full max-w-4xl mt-16 px-4 pb-20">
+        <div className="flex items-center justify-between mb-8 px-4">
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Recent Activities</h2>
+          <div className="h-px flex-1 bg-white/10 mx-6"></div>
+          <p className="text-xs font-bold text-gray-500">{userWorkouts.length} Workouts</p>
+        </div>
+
+        {userWorkouts.length === 0 ? (
+          <div className="text-center py-12 bg-white/5 rounded-[2.5rem] border border-dashed border-white/10">
+            <Activity className="w-12 h-12 text-gray-600 mx-auto mb-4 opacity-50" />
+            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No activities yet</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {userWorkouts.slice(0, 5).map(workout => (
+              <div key={workout.id} className="group relative bg-idx-surface/40 backdrop-blur-md border border-white/5 rounded-3xl p-6 hover:bg-white/5 hover:border-white/10 transition-all duration-300">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-neon-blue group-hover:bg-neon-blue/10 transition-colors">
+                      <Zap className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-white mb-1">{workout.name}</h4>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {new Date(workout.date).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-8 text-right">
+                    <div>
+                      <p className="text-[10px] text-gray-600 uppercase font-black mb-1">Duration</p>
+                      <p className="text-sm font-bold text-gray-300">{formatTime(Math.round(workout.duration))}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-600 uppercase font-black mb-1">Avg Power</p>
+                      <p className="text-sm font-bold text-neon-cyan">{workout.avgPower}W</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -1968,12 +2041,49 @@ function App() {
 
   // --- Main Layout ---
 
+  if (!currentProfile) {
+    return <ProfileSelector onProfileSelected={(p) => setCurrentProfile(p)} />;
+  }
+
   return (
-    <div className="min-h-screen selection:bg-neon-blue selection:text-white flex flex-col relative text-gray-200">
+    <div className="min-h-screen selection:bg-neon-blue selection:text-white flex flex-col relative text-gray-200 overflow-x-hidden">
+      {/* Global Background Blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-neon-blue/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute top-[20%] -right-[5%] w-[35%] h-[35%] bg-neon-purple/5 blur-[100px] rounded-full" />
+      </div>
+
+      {/* Header / Profile Info */}
+      <div className="max-w-7xl mx-auto w-full px-6 pt-8 flex justify-between items-center z-40">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center p-[2px]">
+            <div className="w-full h-full rounded-full bg-idx-bg flex items-center justify-center">
+              <User className="w-6 h-6 text-neon-blue" />
+            </div>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">{currentProfile.name}</h2>
+            <div className="flex items-center gap-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+              <Zap className="w-3 h-3 text-neon-cyan" />
+              <span>{ftp}W FTP</span>
+            </div>
+          </div>
+        </div>
+        {!session.isActive && (
+          <button
+            onClick={() => { setActiveProfileId(null); setCurrentProfile(null); }}
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-xs font-bold transition-all text-gray-400 hover:text-white"
+          >
+            <LogOut className="w-4 h-4" />
+            Switch Profile
+          </button>
+        )}
+      </div>
+
       {!session.isActive && view !== 'HOME' && (
         <button
           onClick={() => setView('HOME')}
-          className="fixed top-5 left-5 z-40 text-gray-400 bg-idx-surface/60 backdrop-blur-xl hover:text-white hover:bg-white/10 p-4 rounded-full transition-all border border-white/10 shadow-lg"
+          className="fixed top-28 left-5 z-40 text-gray-400 bg-idx-surface/60 backdrop-blur-xl hover:text-white hover:bg-white/10 p-4 rounded-full transition-all border border-white/10 shadow-lg"
           aria-label="Go to Home"
         >
           <Home size={22} />

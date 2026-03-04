@@ -163,6 +163,7 @@ export interface StravaTokenData {
 // For Dexie
 export interface WorkoutRecording {
   id?: number;
+  profileId: number; // ID of the user who performed the workout
   name: string;
   date: Date;
   duration: number; // total seconds
@@ -171,6 +172,20 @@ export interface WorkoutRecording {
   stravaId?: string;
   steps: IntervalStep[];
   rawData: RawDataPoint[];
+}
+
+export interface UserProfile {
+  id?: number;
+  name: string;
+  age: number;
+  gender: 'male' | 'female' | 'other';
+  weight: number; // kg
+  height: number; // cm
+  ftp: number; // watts
+  experience: 'beginner' | 'intermediate' | 'advanced';
+  trainingFrequency: number; // days per week
+  trainingHours: number; // hours per week
+  isDefault?: boolean;
 }
 
 export interface Metrics {
