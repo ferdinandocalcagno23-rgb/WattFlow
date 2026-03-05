@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Plus, Trash2, Edit2, Zap, LogOut, Activity, Trophy } from 'lucide-react';
+import { User, Plus, Trash2, Edit2, Zap, LogOut, Activity, Trophy, Download } from 'lucide-react';
 import { UserProfile } from '@/types';
 import { getProfiles, createProfile, deleteProfile, updateProfile, getWorkoutCountByProfile } from '@/services/dbService';
 import { ProfileSetup } from './ProfileSetup';
@@ -9,9 +9,17 @@ import { setActiveProfileId, getActiveProfileId } from '@/services/profileServic
 
 interface ProfileSelectorProps {
     onProfileSelected: (profile: UserProfile) => void;
+    installPrompt?: any;
+    isPWA?: boolean;
+    onInstallClick?: () => void;
 }
 
-export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ onProfileSelected }) => {
+export const ProfileSelector: React.FC<ProfileSelectorProps> = ({
+    onProfileSelected,
+    installPrompt,
+    isPWA,
+    onInstallClick
+}) => {
     const [profiles, setProfiles] = useState<UserProfile[]>([]);
     const [workoutCounts, setWorkoutCounts] = useState<Record<number, number>>({});
     const [loading, setLoading] = useState(true);
@@ -88,6 +96,28 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ onProfileSelec
                     <p className="text-sm font-bold text-gray-500 uppercase tracking-[0.25em] mb-12">training made easy</p>
                     <p className="text-gray-400 font-medium text-lg">Chi si allena oggi?</p>
                 </div>
+
+                {/* PWA Install Banner */}
+                {!isPWA && onInstallClick && (
+                    <div className="max-w-4xl mx-auto w-full mb-8 animate-fade-in z-20 relative">
+                        <div className="bg-white/5 border border-neon-cyan/30 rounded-[2rem] p-6 hover:bg-white/10 transition-all cursor-pointer group shadow-[0_0_20px_rgba(6,182,212,0.1)]" onClick={onInstallClick}>
+                            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                                <div className="flex items-center gap-4 text-center md:text-left">
+                                    <div className="w-12 h-12 rounded-full bg-neon-cyan/20 text-neon-cyan flex items-center justify-center group-hover:scale-110 transition-transform shadow-[0_0_15px_rgba(6,182,212,0.4)]">
+                                        <Download size={24} className="animate-bounce" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-white font-bold text-lg mb-1">{installPrompt ? 'Installa App' : 'Come installare'}</h3>
+                                        <p className="text-gray-400 text-sm">Scarica WattFlow per un'esperienza a schermo intero e offline.</p>
+                                    </div>
+                                </div>
+                                <button className="px-6 py-2 rounded-full bg-gradient-to-r from-neon-cyan to-neon-blue text-white font-bold text-sm shadow-md shadow-neon-cyan/20 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all">
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     {/* Profile Slots */}

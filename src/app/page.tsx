@@ -1122,23 +1122,7 @@ function App() {
         </Card>
       </div>
 
-      {!isPWA && (
-        <div className="w-full max-w-4xl mb-16 px-4 animate-fade-in">
-          <Card className="p-1 group/install transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <Button
-              onClick={handleInstallClick}
-              variant="neon"
-              className="w-full !rounded-2xl py-6 text-xl border-neon-cyan/80 text-neon-cyan/80 hover:text-neon-cyan hover:border-neon-cyan relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/10 via-transparent to-neon-purple/10 opacity-0 group-hover/install:opacity-100 transition-opacity" />
-              <Download size={24} className="mr-3 animate-bounce" />
-              {installPrompt ? 'Install WattFlow for Desktop' : 'Come installare WattFlow'}
-            </Button>
-          </Card>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-4 max-w-7xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-4 max-w-7xl mt-8">
         {[
           { id: 'FREE_RIDE', icon: Gauge, title: 'Free Ride', desc: 'Manual slope control.', color: 'text-neon-cyan', gradient: 'from-neon-cyan/20 to-transparent' },
           { id: 'ERG_MODE', icon: Zap, title: 'ERG Mode', desc: 'Target power training.', color: 'text-neon-purple', gradient: 'from-neon-purple/20 to-transparent' },
@@ -2149,7 +2133,14 @@ function App() {
   // --- Main Layout ---
 
   if (!currentProfile) {
-    return <ProfileSelector onProfileSelected={(p) => setCurrentProfile(p)} />;
+    return (
+      <ProfileSelector
+        onProfileSelected={(p) => setCurrentProfile(p)}
+        installPrompt={installPrompt}
+        isPWA={isPWA}
+        onInstallClick={handleInstallClick}
+      />
+    );
   }
 
   return (
