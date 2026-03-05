@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bluetooth, Heart, Zap, Activity, Play, Pause, Plus, Trash2, Settings, Monitor, Save, Edit3, Clock, BarChart2, X, ChevronLeft, RotateCcw, Home, Gauge, Sliders, ArrowRight, SkipForward, BookOpen, XCircle, Eye, EyeOff, Download, ChevronsUpDown, PanelLeftClose, PanelRightClose, Minus, UploadCloud, User, LogOut, HelpCircle } from 'lucide-react';
+import { Bluetooth, Heart, Zap, Activity, Play, Pause, Plus, Trash2, Settings, Monitor, Save, Edit3, Clock, BarChart2, X, ChevronLeft, RotateCcw, Home, Gauge, Sliders, ArrowRight, SkipForward, BookOpen, XCircle, Eye, EyeOff, Download, ChevronsUpDown, PanelLeftClose, PanelRightClose, Minus, UploadCloud, User, LogOut, HelpCircle, RefreshCw, CheckCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { bleService } from '@/services/bleService';
