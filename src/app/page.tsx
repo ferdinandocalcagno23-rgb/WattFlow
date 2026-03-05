@@ -1127,7 +1127,10 @@ function App() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-7xl px-4 mt-16">
         {/* Strava Automatic Sync Status */}
-        <Card className={`p-8 border-l-[6px] transition-all ${currentProfile?.stravaToken ? 'border-l-neon-green bg-gradient-to-r from-neon-green/5 to-transparent' : 'border-l-gray-600 bg-white/5'}`}>
+        <Card
+          onClick={() => setView('PROFILE')}
+          className={`p-8 border-l-[6px] transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98] duration-300 ${currentProfile?.stravaToken ? 'border-l-neon-green bg-gradient-to-r from-neon-green/5 to-transparent shadow-lg shadow-neon-green/5' : 'border-l-gray-600 bg-white/5 hover:border-l-neon-cyan'}`}
+        >
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-all ${currentProfile?.stravaToken ? 'bg-neon-green/20 text-neon-green shadow-neon-green/20' : 'bg-gray-800 text-gray-400'}`}>
               <RefreshCw size={32} className={currentProfile?.stravaToken ? 'animate-spin-slow' : ''} />
