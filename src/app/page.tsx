@@ -235,6 +235,8 @@ function App() {
   const [isPWA, setIsPWA] = useState(false);
   const [isInstallHelpOpen, setIsInstallHelpOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [lastSavedWorkout, setLastSavedWorkout] = useState<WorkoutRecording | null>(null);
 
   // --- Sprint 2 & 3 State ---
   const [difficultyBias, setDifficultyBias] = useState(100); // as percentage
@@ -632,7 +634,7 @@ function App() {
     const totalPower = session.rawData.reduce((sum, p) => sum + p.power, 0);
     const avgPower = session.rawData.length > 0 ? Math.round(totalPower / session.rawData.length) : 0;
 
-    const workoutToSave: Omit<WorkoutRecording, 'id' | 'status' | 'stravaId'> = {
+    const workoutToSave: WorkoutRecording = {
       profileId: currentProfile?.id || 0,
       name: workout.name,
       date: new Date(session.startTime),
@@ -640,31 +642,30 @@ function App() {
       avgPower,
       steps: workout.steps,
       rawData: session.rawData,
+      status: 'pending'
     };
 
-    // Lazy load the fitEncoder to shrink the initial bundle size
-    import('@/lib/strava/fitEncoder').then(({ createTcxBlob }) => {
-      const tcxBlob = createTcxBlob(workoutToSave as WorkoutRecording);
+    // Skip the auto-download, just save and show completion modal
+    setLastSavedWorkout(workoutToSave);
+    setIsCompletionModalOpen(true);
+    setShowSaveModal(false);
+    bleService.setTargetPower(100);
+    setSession({ isActive: false, currentStepIndex: 0, elapsedTimeInStep: 0, totalElapsedTime: 0, isPaused: false, rawData: [], startTime: 0 });
+  };
 
+  const handleDownloadTcx = (workoutData: WorkoutRecording) => {
+    import('@/lib/strava/fitEncoder').then(({ createTcxBlob }) => {
+      const tcxBlob = createTcxBlob(workoutData);
       const url = URL.createObjectURL(tcxBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${workout.name.replace(/\s+/g, '_') || 'workout'}.tcx`;
+      a.download = `${workoutData.name.replace(/\s+/g, '_') || 'workout'}.tcx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-
-      setShowSaveModal(false);
-      bleService.setTargetPower(100);
-      setView('HOME');
-      setSession({ isActive: false, currentStepIndex: 0, elapsedTimeInStep: 0, totalElapsedTime: 0, isPaused: false, rawData: [], startTime: 0 });
     }).catch(err => {
       console.error("Failed to load fitEncoder", err);
-      setShowSaveModal(false);
-      bleService.setTargetPower(100);
-      setView('HOME');
-      setSession({ isActive: false, currentStepIndex: 0, elapsedTimeInStep: 0, totalElapsedTime: 0, isPaused: false, rawData: [], startTime: 0 });
     });
   };
 
@@ -1124,18 +1125,44 @@ function App() {
         ))}
       </div>
 
-      {/* Strava Manual Upload Guide */}
-      <div className="w-full max-w-4xl mt-16 px-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-7xl px-4 mt-16">
+        {/* Strava Automatic Sync Status */}
+        <Card className={`p-8 border-l-[6px] transition-all ${currentProfile?.stravaToken ? 'border-l-neon-green bg-gradient-to-r from-neon-green/5 to-transparent' : 'border-l-gray-600 bg-white/5'}`}>
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg transition-all ${currentProfile?.stravaToken ? 'bg-neon-green/20 text-neon-green shadow-neon-green/20' : 'bg-gray-800 text-gray-400'}`}>
+              <RefreshCw size={32} className={currentProfile?.stravaToken ? 'animate-spin-slow' : ''} />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <h3 className="font-bold text-white text-xl mb-2">Sincronizzazione Strava</h3>
+              {currentProfile?.stravaToken ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-center md:justify-start gap-2 text-neon-green">
+                    <CheckCircle size={16} />
+                    <span className="text-sm font-bold uppercase tracking-wider">Attiva</span>
+                  </div>
+                  <p className="text-gray-400 text-sm">I tuoi allenamenti verranno caricati automaticamente.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-gray-400 text-sm leading-relaxed">
+                    Collega Strava nel tuo <span className="text-neon-cyan font-bold">Profilo</span> per abilitare il caricamento automatico in background.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* Strava Manual Upload Guide */}
         <Card className="p-8 border-l-[6px] border-l-neon-amber bg-gradient-to-r from-neon-amber/5 to-transparent">
           <div className="flex flex-col md:flex-row items-center gap-6">
             <div className="w-16 h-16 rounded-2xl bg-neon-amber/20 text-neon-amber flex items-center justify-center shadow-[0_0_20px_rgba(245,158,11,0.3)]">
               <UploadCloud size={32} />
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h3 className="font-bold text-white text-xl mb-2">Caricamento Manuale Strava</h3>
+              <h3 className="font-bold text-white text-xl mb-2">Caricamento Manuale</h3>
               <p className="text-gray-400 text-sm leading-relaxed">
-                Al termine dell'allenamento, l'app scaricherà un file <span className="text-white font-mono">.tcx</span>.
-                Caricalo su Strava qui: <a href="https://www.strava.com/upload/select" target="_blank" rel="noreferrer" className="text-neon-cyan hover:underline">strava.com/upload/select</a>.
+                Preferisci il metodo classico? Scarica il file <span className="text-white font-mono">.tcx</span> al termine della sessione e caricalo su <a href="https://www.strava.com/upload/select" target="_blank" rel="noreferrer" className="text-neon-cyan hover:underline">strava.com</a>.
               </p>
             </div>
           </div>
@@ -1557,8 +1584,8 @@ function App() {
     return (
       <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end sm:items-center sm:justify-center z-50 animate-fade-in sm:p-4">
         <Card className="w-full sm:w-auto sm:max-w-lg p-6 sm:p-8 relative rounded-t-3xl sm:rounded-3xl rounded-b-none sm:rounded-b-xl shadow-2xl shadow-neon-blue/20 border-neon-blue/20">
-          <h2 className="text-3xl font-bold mb-4 text-white text-center">Workout Paused</h2>
-          <p className="text-gray-400 text-center mb-8">What would you like to do?</p>
+          <h2 className="text-3xl font-bold mb-4 text-white text-center">In pausa</h2>
+          <p className="text-gray-400 text-center mb-8">Cosa desideri fare con questa sessione?</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Button
@@ -1567,7 +1594,7 @@ function App() {
               className="px-6 py-4 text-lg"
             >
               <XCircle size={20} className="mr-2" />
-              Discard
+              Scarta
             </Button>
             <Button
               onClick={() => {
@@ -1577,7 +1604,7 @@ function App() {
               variant="secondary"
               className="px-6 py-4 text-lg"
             >
-              Resume
+              Riprendi
             </Button>
             <Button
               onClick={handleSaveWorkout}
@@ -1585,8 +1612,59 @@ function App() {
               className="px-6 py-4 text-lg from-neon-green to-neon-cyan"
             >
               <Save size={20} className="mr-2" />
-              Save & Finish
+              Salva
             </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  };
+
+  const renderCompletionModal = () => {
+    if (!isCompletionModalOpen || !lastSavedWorkout) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-[100] p-4 animate-in fade-in zoom-in duration-300">
+        <Card className="w-full max-w-md p-8 bg-idx-surface/90 border-neon-green/30 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-neon-green to-neon-cyan" />
+
+          <div className="flex flex-col items-center text-center">
+            <div className="w-20 h-20 rounded-full bg-neon-green/20 text-neon-green flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(34,197,94,0.3)] animate-bounce-slow">
+              <CheckCircle size={48} />
+            </div>
+
+            <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Allenamento Salvato!</h2>
+            <p className="text-gray-400 mb-8 leading-relaxed">
+              Ottimo lavoro. La tua sessione è stata salvata correttamente nell'**Archivio** dell'app.
+            </p>
+
+            <div className="w-full space-y-4">
+              <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-left">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 mb-3">Opzioni Esportazione</p>
+                <p className="text-xs text-gray-400 mb-4">
+                  Se vuoi caricare manualmente questo allenamento su Strava o Garmin, scarica il file ora:
+                </p>
+                <Button
+                  onClick={() => handleDownloadTcx(lastSavedWorkout)}
+                  variant="outline"
+                  className="w-full border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10 py-6"
+                >
+                  <Download size={20} className="mr-2" />
+                  Scarica File .TCX
+                </Button>
+              </div>
+
+              <Button
+                onClick={() => {
+                  setIsCompletionModalOpen(false);
+                  setView('HOME');
+                }}
+                variant="primary"
+                className="w-full py-6 text-lg from-neon-green to-neon-cyan shadow-lg shadow-neon-green/20"
+              >
+                Torna alla Dashboard
+              </Button>
+            </div>
           </div>
         </Card>
       </div>
@@ -2257,6 +2335,9 @@ function App() {
         {view === 'HISTORY' && renderHistory()}
         {view === 'PROFILE' && renderProfile()}
       </main>
+
+      {renderSaveModal()}
+      {renderCompletionModal()}
 
       <Dialog open={isInstallHelpOpen} onOpenChange={setIsInstallHelpOpen}>
         <DialogContent className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/90 backdrop-blur-xl border-white/10 text-white">
