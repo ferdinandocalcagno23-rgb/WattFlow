@@ -232,7 +232,6 @@ function App() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isWorkoutLibraryOpen, setIsWorkoutLibraryOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isPWA, setIsPWA] = useState(false);
   const [isInstallHelpOpen, setIsInstallHelpOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -265,19 +264,8 @@ function App() {
       setIsPWA(true);
     }
 
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     // Initialize auto background sync
     syncService.initAutoSync();
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
   }, []);
 
   useEffect(() => {
@@ -534,22 +522,6 @@ function App() {
   };
   const updateResistance = useCallback((level: number) => { setResistanceLevel(level); bleService.setResistance(level); }, []);
   const updateTargetPower = (watts: number) => { setTargetPower(watts); bleService.setTargetPower(watts); };
-
-  const handleInstallClick = () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      installPrompt.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-        } else {
-          console.log('User dismissed the install prompt');
-        }
-        setInstallPrompt(null);
-      });
-    } else {
-      setIsInstallHelpOpen(true);
-    }
-  };
 
   const handleAddIntervals = () => {
     if (intervalCreatorData.repetitions <= 0) return;
@@ -1126,21 +1098,6 @@ function App() {
         </Card>
       </div>
 
-      {!isPWA && (
-        <div className="w-full max-w-4xl mb-16 px-4 animate-fade-in">
-          <Card className="p-1 group/install transition-all hover:scale-[1.02] active:scale-[0.98]">
-            <Button
-              onClick={handleInstallClick}
-              variant="neon"
-              className="w-full !rounded-2xl py-6 text-xl border-neon-cyan/80 text-neon-cyan/80 hover:text-neon-cyan hover:border-neon-cyan relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/10 via-transparent to-neon-purple/10 opacity-0 group-hover/install:opacity-100 transition-opacity" />
-              <Download size={24} className="mr-3 animate-bounce" />
-              {installPrompt ? 'Install WattFlow for Desktop' : 'Come installare WattFlow'}
-            </Button>
-          </Card>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-4 max-w-7xl">
         {[

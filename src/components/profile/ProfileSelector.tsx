@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Plus, Trash2, Edit2, Zap, LogOut, Activity, Trophy } from 'lucide-react';
+import { User, Plus, Trash2, Edit2, Zap, LogOut, Activity, Trophy, Download } from 'lucide-react';
 import { UserProfile } from '@/types';
 import { getProfiles, createProfile, deleteProfile, updateProfile, getWorkoutCountByProfile } from '@/services/dbService';
 import { ProfileSetup } from './ProfileSetup';
@@ -17,6 +17,8 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ onProfileSelec
     const [loading, setLoading] = useState(true);
     const [isSetupOpen, setIsSetupOpen] = useState(false);
     const [editingProfile, setEditingProfile] = useState<UserProfile | null>(null);
+    const [installPrompt, setInstallPrompt] = useState<any>(null);
+    const [isPWA, setIsPWA] = useState(false);
 
     useEffect(() => {
         loadProfiles();
@@ -43,6 +45,37 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ onProfileSelec
             if (active) {
                 onProfileSelected(active);
             }
+        }
+    };
+
+    useEffect(() => {
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            setIsPWA(true);
+        }
+
+        const handleBeforeInstallPrompt = (e: Event) => {
+            e.preventDefault();
+            setInstallPrompt(e);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
+    }, []);
+
+    const handleInstallClick = () => {
+        if (installPrompt) {
+            installPrompt.prompt();
+            installPrompt.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                setInstallPrompt(null);
+            });
         }
     };
 
@@ -176,6 +209,22 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ onProfileSelec
                         );
                     })}
                 </div>
+
+                {!isPWA && (
+                    <div className="mt-16 flex justify-center animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-300">
+                        <button
+                            onClick={handleInstallClick}
+                            className="group relative px-8 py-4 bg-white/5 border border-white/10 rounded-2xl flex items-center gap-4 hover:bg-white/10 hover:border-neon-cyan/50 transition-all duration-300 active:scale-95 overflow-hidden"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <Download size={20} className="text-neon-cyan animate-bounce" />
+                            <div className="text-left">
+                                <p className="text-sm font-black text-white uppercase tracking-wider">Scarica l'App</p>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Esperienza Premium</p>
+                            </div>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {(isSetupOpen || editingProfile) && (
