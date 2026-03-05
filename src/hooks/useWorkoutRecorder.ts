@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { addWorkout } from '@/services/dbService';
 import type { RawDataPoint, IntervalStep } from '@/types';
+import { syncService } from '@/services/syncService';
 
 export const useWorkoutRecorder = (workoutName: string, steps: IntervalStep[], profileId: number | null) => {
   const [isRecording, setIsRecording] = useState(false);
@@ -41,6 +42,9 @@ export const useWorkoutRecorder = (workoutName: string, steps: IntervalStep[], p
     };
 
     await addWorkout(workoutData);
+
+    // Trigger an immediate background sync after saving a new workout
+    syncService.syncPendingWorkouts().catch(err => console.error("Auto-sync failed:", err));
 
     // Reset state
     setIsRecording(false);

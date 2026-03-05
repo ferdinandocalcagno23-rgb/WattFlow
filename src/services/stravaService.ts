@@ -2,97 +2,82 @@
 import axios from 'axios';
 import { STRAVA_CLIENT_ID, APP_URL } from '@/lib/strava/config';
 import type { StravaTokenData } from '@/types';
-
-const STRAVA_TOKEN_KEY = 'strava_token_data';
+import { getProfile, updateProfile } from './dbService';
 
 class StravaService {
-  private tokenData: StravaTokenData | null = null;
-
-  constructor() {
-    if (typeof window !== 'undefined') {
-      const storedToken = localStorage.getItem(STRAVA_TOKEN_KEY);
-      if (storedToken) {
-        try {
-            this.tokenData = JSON.parse(storedToken);
-        } catch(e) {
-            console.error("Failed to parse strava token", e);
-            localStorage.removeItem(STRAVA_TOKEN_KEY);
-        }
-      }
-    }
-  }
-
   public getAuthUrl(): string {
     const redirectUri = `${APP_URL}/strava/exchange_token`;
     const scope = 'activity:write,read';
     return `https://www.strava.com/oauth/authorize?client_id=${STRAVA_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&approval_prompt=force&scope=${scope}`;
   }
-  
-  public isAuthenticated(): boolean {
-    return !!this.tokenData?.access_token;
+
+  public async isAuthenticated(profileId: number): Promise<boolean> {
+    const profile = await getProfile(profileId);
+    return !!profile?.stravaToken?.access_token;
   }
 
-  private saveTokenData(data: StravaTokenData) {
-    // Strava returns expiry in seconds from epoch, convert to ms for JS Date compatibility
+  private async saveTokenData(profileId: number, data: StravaTokenData) {
     const expires_at_ms = data.expires_at * 1000;
-    this.tokenData = { ...data, expires_at: expires_at_ms };
-    localStorage.setItem(STRAVA_TOKEN_KEY, JSON.stringify(this.tokenData));
-  }
-  
-  public disconnect() {
-    this.tokenData = null;
-    localStorage.removeItem(STRAVA_TOKEN_KEY);
+    const tokenData = { ...data, expires_at: expires_at_ms };
+    await updateProfile(profileId, { stravaToken: tokenData });
   }
 
-  async exchangeToken(code: string): Promise<void> {
+  public async disconnect(profileId: number) {
+    const profile = await getProfile(profileId);
+    if (profile) {
+      await updateProfile(profileId, { stravaToken: undefined });
+    }
+  }
+
+  async exchangeToken(profileId: number, code: string): Promise<void> {
     const response = await axios.post('/api/strava/token', { code });
-    this.saveTokenData(response.data);
+    await this.saveTokenData(profileId, response.data);
   }
 
-  private async getValidAccessToken(): Promise<string> {
-    if (!this.tokenData) throw new Error("Not authenticated with Strava.");
+  private async getValidAccessToken(profileId: number): Promise<string> {
+    const profile = await getProfile(profileId);
+    if (!profile || !profile.stravaToken) throw new Error("Not authenticated with Strava.");
 
     // Check if token is expired or about to expire (within 5 minutes)
-    if (Date.now() >= this.tokenData.expires_at - 5 * 60 * 1000) {
+    if (Date.now() >= profile.stravaToken.expires_at - 5 * 60 * 1000) {
       console.log("Strava token expired or expiring soon, refreshing...");
-      await this.refreshToken();
+      return await this.refreshToken(profileId, profile.stravaToken.refresh_token);
     }
-    
-    return this.tokenData!.access_token;
+
+    return profile.stravaToken.access_token;
   }
-  
-  private async refreshToken(): Promise<void> {
-    if (!this.tokenData?.refresh_token) {
-        this.disconnect(); // Clear invalid token data
-        throw new Error("No refresh token available. Please re-authenticate.");
-    }
+
+  private async refreshToken(profileId: number, refreshToken: string): Promise<string> {
     try {
-        const response = await axios.post('/api/strava/token', { 
-            refreshToken: this.tokenData.refresh_token
-        });
-        this.saveTokenData(response.data);
-    } catch(e) {
-        console.error("Failed to refresh token, disconnecting", e);
-        this.disconnect();
-        throw e;
+      const response = await axios.post('/api/strava/token', {
+        refreshToken: refreshToken
+      });
+      const expires_at_ms = response.data.expires_at * 1000;
+      const newTokenData = { ...response.data, expires_at: expires_at_ms };
+      await updateProfile(profileId, { stravaToken: newTokenData });
+      return newTokenData.access_token;
+    } catch (e) {
+      console.error("Failed to refresh token, disconnecting", e);
+      await this.disconnect(profileId);
+      throw e;
     }
   }
 
-  public async uploadActivity(activityBlob: Blob, name: string, dataType: 'fit' | 'tcx' = 'fit'): Promise<any> {
-    const accessToken = await this.getValidAccessToken();
-    
+  public async uploadActivity(profileId: number, activityBlob: Blob, name: string, dataType: 'fit' | 'tcx' = 'fit'): Promise<any> {
+    const accessToken = await this.getValidAccessToken(profileId);
+
     const formData = new FormData();
     formData.append('file', activityBlob, `${name.replace(/\s+/g, '_')}.${dataType}`);
     formData.append('data_type', dataType);
     formData.append('name', name);
-    
+
     const response = await axios.post('https://www.strava.com/api/v3/uploads', formData, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'multipart/form-data',
       },
     });
-    
+
     return response.data;
   }
 }

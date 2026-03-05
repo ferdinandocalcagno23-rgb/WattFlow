@@ -51,6 +51,10 @@ export async function getProfiles() {
   return await db.profiles.toArray();
 }
 
+export async function getProfile(id: number) {
+  return await db.profiles.get(id);
+}
+
 export async function createProfile(profile: Omit<UserProfile, 'id'>) {
   return await db.profiles.add(profile);
 }

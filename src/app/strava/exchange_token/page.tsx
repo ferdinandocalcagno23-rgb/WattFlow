@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { stravaService } from '@/services/stravaService';
-
+import { getActiveProfileId } from '@/services/profileService';
 import { Suspense } from 'react';
 
 function StravaExchangeTokenContent() {
@@ -27,8 +27,14 @@ function StravaExchangeTokenContent() {
         return;
       }
 
+      const activeProfileId = getActiveProfileId();
+      if (!activeProfileId) {
+        setError('No active profile found. Please select a profile first.');
+        return;
+      }
+
       setStatus('Exchanging token...');
-      stravaService.exchangeToken(code)
+      stravaService.exchangeToken(activeProfileId, code)
         .then(() => {
           setStatus('Success! Redirecting...');
           router.push('/');

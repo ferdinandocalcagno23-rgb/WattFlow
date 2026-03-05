@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { User, Zap, Activity, Heart, TrendingUp, Edit2, Save, Wind, Battery, Target, Clock } from 'lucide-react';
+import { User, Zap, Activity, Heart, TrendingUp, Edit2, Save, Wind, Battery, Target, Clock, Link as LinkIcon, Unlink } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, AreaChart, Area, BarChart, Bar } from 'recharts';
 import type { UserProfile, WorkoutRecording } from '@/types';
 import {
@@ -12,6 +12,7 @@ import {
     findMaxRollingAvg,
 } from '@/services/trainingMetrics';
 import { updateProfile } from '@/services/dbService';
+import { stravaService } from '@/services/stravaService';
 
 interface ProfileDashboardProps {
     profile: UserProfile;
@@ -203,7 +204,7 @@ export const ProfileDashboard: React.FC<ProfileDashboardProps> = ({
                                 <label className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">{field.label}</label>
                                 <input
                                     type={field.type}
-                                    value={form[field.key]}
+                                    value={form[field.key as keyof typeof form] as number}
                                     onChange={e => setForm({ ...form, [field.key]: parseFloat(e.target.value) || 0 })}
                                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-neon-blue transition-colors text-white font-bold"
                                 />
@@ -409,6 +410,42 @@ export const ProfileDashboard: React.FC<ProfileDashboardProps> = ({
                         subtitle="FTP / Peso"
                     />
                 </div>
+            </div>
+
+            {/* Integrations (Always visible at bottom) */}
+            <div>
+                <h2 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 mb-4 pl-1 mt-8">Integrazioni</h2>
+                {profile.stravaToken?.access_token ? (
+                    <div className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-2xl hover:bg-white/[0.07] transition-all">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-[#FC4C02]/20 flex items-center justify-center text-[#FC4C02]">
+                                <LinkIcon size={20} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-white text-sm">Connesso a Strava</p>
+                                <p className="text-xs text-gray-400">Sync automatico attivo</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={async () => {
+                                if (profile.id) {
+                                    await stravaService.disconnect(profile.id);
+                                    onProfileUpdated({ ...profile, stravaToken: undefined });
+                                }
+                            }}
+                            className="px-4 py-2 border border-red-500/20 text-red-500 rounded-xl text-xs font-bold hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                        >
+                            <Unlink size={14} /> Disconnetti
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => { window.location.href = stravaService.getAuthUrl(); }}
+                        className="w-full p-4 bg-[#FC4C02]/10 border border-[#FC4C02]/30 text-[#FC4C02] rounded-2xl font-bold flex items-center justify-center gap-3 hover:bg-[#FC4C02]/20 transition-colors"
+                    >
+                        <LinkIcon size={20} /> Connetti a Strava (Auto-Sync)
+                    </button>
+                )}
             </div>
         </div>
     );

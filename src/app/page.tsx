@@ -12,6 +12,7 @@ import { getWorkoutsByProfile, addCustomWorkout, getCustomWorkoutsByProfile, del
 import type { CustomWorkout, WorkoutRecording, UserProfile } from '@/types';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { syncService } from '@/services/syncService';
 // Development Mirror Branch
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
@@ -270,6 +271,9 @@ function App() {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Initialize auto background sync
+    syncService.initAutoSync();
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -2253,6 +2257,10 @@ function App() {
               {
                 title: '⏱️ Auto ERG Off',
                 desc: 'Durante gli intervalli, se la cadenza scende sotto 30 RPM per 5 secondi, l\'ERG mode si disattiva automaticamente per sicurezza. Si riattiva quando riprendi a pedalare.',
+              },
+              {
+                title: '🔗 Sincronizzazione Strava',
+                desc: 'Collega il tuo account Strava nella sezione Profilo. L\'app caricherà automaticamente i tuoi allenamenti in background non appena avrai una connessione ad internet attiva. Non c\'è bisogno di esportare manualmente.',
               },
             ].map((item, i) => (
               <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4">

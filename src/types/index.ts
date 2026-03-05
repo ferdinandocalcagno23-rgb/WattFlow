@@ -191,6 +191,7 @@ export interface UserProfile {
   trainingHours: number; // hours per week
   isDefault?: boolean;
   avatar?: string;
+  stravaToken?: StravaTokenData;
 }
 
 export interface Metrics {
