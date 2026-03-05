@@ -1,5 +1,5 @@
 'use client';
-import type { WorkoutRecording } from '@/services/dbService';
+import type { WorkoutRecording } from '@/types';
 
 const toISOStringWithMilliseconds = (date: Date) => {
     const pad = (num: number) => (num < 10 ? '0' : '') + num;
@@ -33,7 +33,8 @@ export const createTcxBlob = (workout: WorkoutRecording): Blob => {
             distanceIncrement = speed_ms * timeDiff;
         }
         accumulatedDistance += distanceIncrement;
-        const pointTime = new Date(workout.date.getTime() + point.time * 1000);
+        const workoutDate = new Date(workout.date);
+        const pointTime = new Date(workoutDate.getTime() + point.time * 1000);
 
         return `
             <Trackpoint>
@@ -51,7 +52,7 @@ export const createTcxBlob = (workout: WorkoutRecording): Blob => {
 
     const totalDistance = accumulatedDistance;
     const avgCadence = workout.rawData.length > 0 ? Math.round(workout.rawData.reduce((sum, p) => sum + p.cadence, 0) / workout.rawData.filter(p => p.cadence > 0).length) : 0;
-    
+
     const startTimeISO = toISOStringWithMilliseconds(workout.date);
 
     const tcxContent = `<?xml version="1.0" encoding="UTF-8"?>

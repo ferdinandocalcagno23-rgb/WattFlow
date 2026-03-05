@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bluetooth, Heart, Zap, Activity, Play, Pause, Plus, Trash2, Settings, Monitor, Save, Edit3, Clock, BarChart2, X, ChevronLeft, RotateCcw, Home, Gauge, Sliders, ArrowRight, SkipForward, BookOpen, XCircle, Eye, EyeOff, Download, ChevronsUpDown, PanelLeftClose, PanelRightClose, Minus, UploadCloud } from 'lucide-react';
+import { Bluetooth, Heart, Zap, Activity, Play, Pause, Plus, Trash2, Settings, Monitor, Save, Edit3, Clock, BarChart2, X, ChevronLeft, RotateCcw, Home, Gauge, Sliders, ArrowRight, SkipForward, BookOpen, XCircle, Eye, EyeOff, Download, ChevronsUpDown, PanelLeftClose, PanelRightClose, Minus, UploadCloud, User, LogOut, HelpCircle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Slider } from '@/components/ui/slider';
 import { bleService } from '@/services/bleService';
@@ -8,11 +8,17 @@ import { TrainerData, HeartRateData, Workout, WorkoutSessionState, IntervalStep,
 import { ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis, Tooltip } from 'recharts';
 import { useWorkoutRecorder } from '@/hooks/useWorkoutRecorder';
 // import { SyncManager } from '@/components/SyncManager';
-import type { WorkoutRecording } from '@/services/dbService';
+import { getWorkoutsByProfile, addCustomWorkout, getCustomWorkoutsByProfile, deleteCustomWorkout } from '@/services/dbService';
+import type { CustomWorkout, WorkoutRecording, UserProfile } from '@/types';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+// Development Mirror Branch
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
+import { ProfileSelector } from '@/components/profile/ProfileSelector';
+import { HistoryDashboard } from '@/components/history/HistoryDashboard';
+import { ProfileDashboard } from '@/components/profile/ProfileDashboard';
+import { setActiveProfileId } from '@/services/profileService';
 
 
 // --- New Component for Resistance Slider ---
@@ -85,7 +91,7 @@ const formatTime = (seconds: number) => {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-type ViewState = 'HOME' | 'FREE_RIDE' | 'ERG_MODE' | 'EDITOR' | 'SESSION';
+type ViewState = 'HOME' | 'FREE_RIDE' | 'ERG_MODE' | 'EDITOR' | 'SESSION' | 'HISTORY' | 'PROFILE';
 
 // --- Styled Components (Functional) ---
 
@@ -206,6 +212,9 @@ function App() {
   const [session, setSession] = useState<WorkoutSessionState>({
     isActive: false, currentStepIndex: 0, elapsedTimeInStep: 0, totalElapsedTime: 0, isPaused: false, rawData: [], startTime: 0
   });
+  const [currentProfile, setCurrentProfile] = useState<UserProfile | null>(null);
+  const [userWorkouts, setUserWorkouts] = useState<WorkoutRecording[]>([]);
+  const [customWorkoutsList, setCustomWorkoutsList] = useState<CustomWorkout[]>([]);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const timerRef = useRef<number | null>(null);
@@ -225,6 +234,7 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isPWA, setIsPWA] = useState(false);
   const [isInstallHelpOpen, setIsInstallHelpOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // --- Sprint 2 & 3 State ---
   const [difficultyBias, setDifficultyBias] = useState(100); // as percentage
@@ -244,7 +254,7 @@ function App() {
 
 
   // --- Hooks ---
-  const { isRecording, startRecording, stopRecording, addDatapoint } = useWorkoutRecorder(workout.name, workout.steps);
+  const { isRecording, startRecording, stopRecording, addDatapoint } = useWorkoutRecorder(workout.name, workout.steps, currentProfile?.id || null);
 
 
   // --- Effects ---
@@ -281,6 +291,29 @@ function App() {
     };
     bleService.setCallbacks(trainerCallback, hrCallback);
   }, [isTrainerConnected, isHRConnected]);
+
+  useEffect(() => {
+    if (currentProfile) {
+      setFtp(currentProfile.ftp);
+      setUserWeight(currentProfile.weight);
+      loadUserWorkouts();
+    }
+  }, [currentProfile]);
+
+  const loadUserWorkouts = async () => {
+    if (currentProfile?.id) {
+      const data = await getWorkoutsByProfile(currentProfile.id);
+      setUserWorkouts(data);
+      const customData = await getCustomWorkoutsByProfile(currentProfile.id);
+      setCustomWorkoutsList(customData);
+    }
+  };
+
+  useEffect(() => {
+    if (view === 'HOME') {
+      loadUserWorkouts();
+    }
+  }, [view]);
 
 
   // Background audio hack
@@ -624,6 +657,7 @@ function App() {
     const avgPower = session.rawData.length > 0 ? Math.round(totalPower / session.rawData.length) : 0;
 
     const workoutToSave: Omit<WorkoutRecording, 'id' | 'status' | 'stravaId'> = {
+      profileId: currentProfile?.id || 0,
       name: workout.name,
       date: new Date(session.startTime),
       duration: session.totalElapsedTime,
@@ -655,6 +689,23 @@ function App() {
       bleService.setTargetPower(100);
       setView('HOME');
       setSession({ isActive: false, currentStepIndex: 0, elapsedTimeInStep: 0, totalElapsedTime: 0, isPaused: false, rawData: [], startTime: 0 });
+    });
+  };
+
+  const handleDownloadHistory = (workoutToDownload: WorkoutRecording) => {
+    // Lazy load the fitEncoder
+    import('@/lib/strava/fitEncoder').then(({ createTcxBlob }) => {
+      const tcxBlob = createTcxBlob(workoutToDownload);
+      const url = URL.createObjectURL(tcxBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${workoutToDownload.name.replace(/\s+/g, '_') || 'workout'}.tcx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }).catch(err => {
+      console.error("Failed to load fitEncoder for history download", err);
     });
   };
 
@@ -722,6 +773,55 @@ function App() {
 
     setIsWorkoutLibraryOpen(false);
     setSelectedStepId(null);
+  };
+
+  const handleLoadCustomWorkout = (customWorkout: CustomWorkout) => {
+    const newSteps: IntervalStep[] = customWorkout.steps.map(step => ({
+      ...step,
+      id: Math.random().toString(36).substr(2, 9),
+    }));
+
+    setWorkout({
+      ...workout,
+      id: customWorkout.id,
+      name: customWorkout.name,
+      description: customWorkout.description,
+      steps: newSteps,
+    });
+
+    setIsWorkoutLibraryOpen(false);
+    setSelectedStepId(null);
+  };
+
+  const handleSaveCustomWorkout = async () => {
+    if (!currentProfile?.id) return;
+    if (workout.steps.length === 0) return;
+
+    // Ensure workout has a proper unique id for custom workouts
+    const customId = workout.id.startsWith('custom-') && workout.id !== 'custom-1'
+      ? workout.id
+      : `custom-${Date.now()}`;
+
+    const customWorkout: CustomWorkout = {
+      ...workout,
+      id: customId,
+      profileId: currentProfile.id,
+    };
+
+    await addCustomWorkout(customWorkout);
+    setWorkout(customWorkout); // Update current workout id to the new custom id
+
+    // Refresh list
+    const customData = await getCustomWorkoutsByProfile(currentProfile.id);
+    setCustomWorkoutsList(customData);
+  };
+
+  const handleDeleteCustomWorkout = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!currentProfile?.id) return;
+    await deleteCustomWorkout(id);
+    const customData = await getCustomWorkoutsByProfile(currentProfile.id);
+    setCustomWorkoutsList(customData);
   };
 
   const startSession = (mode: ViewState) => {
@@ -951,18 +1051,27 @@ function App() {
   // --- Views ---
 
   const renderHome = () => (
-    <div className="flex flex-col items-center justify-center min-h-full w-full max-w-7xl mx-auto relative z-10 p-4 md:p-8">
+    <div className="flex flex-col items-center w-full max-w-7xl mx-auto relative z-10 px-4 pt-8 pb-40 md:px-8">
       {/* Ambient Background Blobs specific to Home */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-neon-purple/20 rounded-full blur-[120px] -z-10 animate-pulse-slow mix-blend-screen"></div>
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-neon-blue/20 rounded-full blur-[120px] -z-10 animate-pulse-slow mix-blend-screen" style={{ animationDelay: '2s' }}></div>
 
       <div className="text-center mb-16 relative">
-        <h1 className="text-5xl md:text-8xl font-black mb-6 tracking-tight text-white drop-shadow-2xl">
-          Your training, <br className="md:hidden" /> <GradientText>your way</GradientText>
+        <p className="text-sm font-bold text-gray-500 uppercase tracking-[0.2em] mb-4">
+          {new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+        <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tight text-white drop-shadow-2xl">
+          Ciao, <GradientText>{currentProfile?.name}</GradientText>!
         </h1>
         <p className="text-lg md:text-xl text-gray-400 font-medium max-w-lg mx-auto leading-relaxed">
-          Connect your smart trainer. Build your legacy.
+          Pronto per un nuovo allenamento?
         </p>
+        <button
+          onClick={() => setIsHelpOpen(true)}
+          className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all text-sm font-bold"
+        >
+          <HelpCircle size={16} /> Guida App
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl mb-16 px-4">
@@ -1081,39 +1190,44 @@ function App() {
 
     // Pre-session configuration view
     return (
-      <div className="flex flex-col h-screen justify-center items-center p-4 md:p-8 gap-8 animate-fade-in">
-        <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-2">Free Ride</h1>
-          <p className="text-gray-400">Set your starting resistance level.</p>
-        </div>
-
-        <Card className="p-10 text-center bg-transparent border-none shadow-none max-w-2xl w-full">
-          <span className="text-gray-500 font-bold uppercase block mb-8 text-xs tracking-[0.2em]">Slope Resistance</span>
-          <div className="font-bold tracking-tighter text-8xl md:text-9xl text-neon-cyan" style={{ lineHeight: 1 }}>
-            {resistanceLevel}%
+      <div className="flex-1 flex flex-col items-center p-6 md:p-12 animate-fade-in max-w-4xl mx-auto w-full">
+        <div className="flex-1 flex flex-col justify-center items-center gap-12 w-full">
+          <div className="text-center space-y-4">
+            <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter">
+              Free <span className="text-neon-cyan">Ride</span>
+            </h1>
+            <p className="text-xl text-gray-400 font-medium">Imposta la pendenza iniziale.</p>
           </div>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            step="1"
-            value={resistanceLevel}
-            onChange={(e) => setResistanceLevel(parseInt(e.target.value))}
-            className="w-full h-3 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-neon-cyan mt-12"
-          />
-          <div className="flex justify-between mt-4 text-xs text-gray-500 uppercase">
-            <span>Flat (0%)</span>
-            <span>Steep (100%)</span>
-          </div>
-        </Card>
 
-        <div className="fixed bottom-0 left-0 right-0 p-8 flex justify-center bg-idx-bg/80 backdrop-blur-xl border-t border-white/10 z-30">
+          <Card className="p-8 md:p-12 text-center bg-white/5 border-white/10 rounded-[2.5rem] w-full shadow-2xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <span className="text-gray-500 font-bold uppercase block mb-8 text-xs tracking-[0.2em] relative z-10">Slope Resistance</span>
+            <div className="font-black tracking-tighter text-9xl md:text-[12rem] text-neon-cyan drop-shadow-[0_0_30px_rgba(6,182,212,0.3)] relative z-10" style={{ lineHeight: 1 }}>
+              {resistanceLevel}%
+            </div>
+            <div className="mt-16 space-y-6 relative z-10">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="1"
+                value={resistanceLevel}
+                onChange={(e) => setResistanceLevel(parseInt(e.target.value))}
+                className="w-full h-3 bg-white/10 rounded-full appearance-none cursor-pointer accent-neon-cyan"
+              />
+              <div className="flex justify-between text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                <span>Pianura (0%)</span>
+                <span>Salita (100%)</span>
+              </div>
+            </div>
+          </Card>
+
           <Button
             onClick={() => startSession('FREE_RIDE')}
-            className="w-full md:w-auto px-24 py-6 text-2xl"
+            className="w-full md:w-auto px-24 py-8 text-3xl font-black rounded-3xl shadow-[0_0_50px_rgba(6,182,212,0.3)] hover:shadow-[0_0_70px_rgba(6,182,212,0.5)] transition-all hover:scale-105 active:scale-95"
             variant="primary"
           >
-            <Play size={28} fill="currentColor" /> START
+            <Play size={32} fill="currentColor" className="mr-2" /> START
           </Button>
         </div>
       </div>
@@ -1127,48 +1241,61 @@ function App() {
 
     // Pre-session configuration view
     return (
-      <div className="flex flex-col h-screen justify-center items-center p-4 md:p-8 gap-8 animate-fade-in">
-        <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-white mb-2">ERG Mode</h1>
-          <p className="text-gray-400">Set your target power.</p>
-        </div>
-
-        <Card className="p-10 text-center bg-transparent border-none shadow-none max-w-2xl w-full">
-          <span className="text-gray-500 font-bold uppercase block mb-8 text-xs tracking-[0.2em]">Target Power Control</span>
-          <div className="flex items-center justify-center gap-6 sm:gap-8">
-            <button onClick={() => updateTargetPower(Math.max(50, targetPower - 10))} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all active:scale-95 group">
-              <Plus size={32} className="rotate-45 text-gray-400 group-hover:text-white transition-colors" />
-            </button>
-            <div className="relative">
-              <div className="text-8xl sm:text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 tabular-nums">
-                {targetPower}
-              </div>
-              <div className="text-lg text-gray-500 font-bold absolute -top-2 -right-6">W</div>
-            </div>
-            <button onClick={() => updateTargetPower(Math.min(1000, targetPower + 10))} className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-neon-blue/10 hover:bg-neon-blue/20 border border-neon-blue/30 flex items-center justify-center transition-all active:scale-95 shadow-[0_0_20px_rgba(59,130,246,0.2)] group">
-              <Plus size={32} className="text-neon-blue group-hover:text-white transition-colors" />
-            </button>
+      <div className="flex-1 flex flex-col items-center p-6 md:p-12 animate-fade-in max-w-4xl mx-auto w-full">
+        <div className="flex-1 flex flex-col justify-center items-center gap-12 w-full">
+          <div className="text-center space-y-4">
+            <h1 className="text-6xl md:text-8xl font-black text-white tracking-tighter">
+              ERG <span className="text-neon-purple">Mode</span>
+            </h1>
+            <p className="text-xl text-gray-400 font-medium">Imposta la tua potenza target.</p>
           </div>
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mt-12">
-            {[100, 150, 200, 250, 300].map(w => (
+
+          <Card className="p-8 md:p-12 text-center bg-white/5 border-white/10 rounded-[2.5rem] w-full shadow-2xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-neon-purple/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+            <span className="text-gray-500 font-bold uppercase block mb-8 text-xs tracking-[0.2em] relative z-10">Target Power Control</span>
+
+            <div className="flex items-center justify-center gap-8 md:gap-12 relative z-10">
               <button
-                key={w}
-                onClick={() => updateTargetPower(w)}
-                className={`px-6 py-3 sm:px-8 sm:py-4 rounded-2xl font-bold transition-all border ${targetPower === w ? 'bg-neon-purple text-white border-neon-purple shadow-[0_0_20px_rgba(139,92,246,0.5)] scale-105' : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10 hover:border-white/20'}`}
+                onClick={() => updateTargetPower(Math.max(50, targetPower - 10))}
+                className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all active:scale-90 group/btn"
               >
-                {w}w
+                <Plus size={40} className="rotate-45 text-gray-500 group-hover/btn:text-white transition-colors" />
               </button>
-            ))}
-          </div>
-        </Card>
 
-        <div className="fixed bottom-0 left-0 right-0 p-8 flex justify-center bg-idx-bg/80 backdrop-blur-xl border-t border-white/10 z-30">
+              <div className="relative">
+                <div className="text-9xl md:text-[12rem] font-black text-white tabular-nums drop-shadow-[0_0_40px_rgba(139,92,246,0.3)]">
+                  {targetPower}
+                </div>
+                <div className="text-2xl text-gray-500 font-black absolute -top-2 -right-8">W</div>
+              </div>
+
+              <button
+                onClick={() => updateTargetPower(Math.min(1000, targetPower + 10))}
+                className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-neon-purple/10 hover:bg-neon-purple/20 border border-neon-purple/30 flex items-center justify-center transition-all active:scale-90 shadow-[0_0_30px_rgba(139,92,246,0.2)] group/btn"
+              >
+                <Plus size={40} className="text-neon-purple group-hover/btn:text-white transition-colors" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap justify-center gap-4 mt-16 relative z-10">
+              {[100, 150, 200, 250, 300].map(w => (
+                <button
+                  key={w}
+                  onClick={() => updateTargetPower(w)}
+                  className={`px-8 py-4 rounded-2xl font-black transition-all border text-lg ${targetPower === w ? 'bg-neon-purple text-white border-neon-purple shadow-[0_0_25px_rgba(139,92,246,0.5)] scale-110' : 'bg-white/5 text-gray-500 border-white/5 hover:bg-white/10 hover:border-white/20'}`}
+                >
+                  {w}W
+                </button>
+              ))}
+            </div>
+          </Card>
+
           <Button
             onClick={() => startSession('ERG_MODE')}
-            className="w-full md:w-auto px-24 py-6 text-2xl"
+            className="w-full md:w-auto px-24 py-8 text-3xl font-black rounded-3xl shadow-[0_0_50px_rgba(139,92,246,0.3)] hover:shadow-[0_0_70px_rgba(139,92,246,0.5)] transition-all hover:scale-105 active:scale-95"
             variant="primary"
           >
-            <Play size={28} fill="currentColor" /> START
+            <Play size={32} fill="currentColor" className="mr-2" /> START
           </Button>
         </div>
       </div>
@@ -1292,9 +1419,14 @@ function App() {
               placeholder="Workout Name..."
             />
           </div>
-          <Button onClick={() => setIsWorkoutLibraryOpen(true)} variant="secondary" className="h-full">
-            <BookOpen size={18} /> Load Workout
-          </Button>
+          <div className="flex gap-2 h-full">
+            <Button onClick={() => setIsWorkoutLibraryOpen(true)} variant="secondary" className="px-4">
+              <BookOpen size={18} /> Load
+            </Button>
+            <Button onClick={handleSaveCustomWorkout} variant="secondary" className="px-4 text-neon-cyan border-neon-cyan/30 hover:bg-neon-cyan/10 hover:border-neon-cyan">
+              <Save size={18} /> Save
+            </Button>
+          </div>
           <div className="flex gap-4">
             <div className="bg-white/5 rounded-2xl p-3 px-5 border border-white/5 backdrop-blur-md">
               <label className="text-[10px] text-gray-500 font-bold uppercase block">FTP Target</label>
@@ -1500,6 +1632,32 @@ function App() {
     );
   };
 
+  const renderHistory = () => {
+    return (
+      <div className="max-w-7xl mx-auto w-full px-6 py-8 animate-fade-in">
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Archivio Workout</h1>
+        </div>
+        <HistoryDashboard workouts={userWorkouts} onDownloadTcx={handleDownloadHistory} />
+      </div>
+    );
+  };
+
+  const renderProfile = () => {
+    if (!currentProfile) return null;
+    return (
+      <ProfileDashboard
+        profile={currentProfile}
+        workouts={userWorkouts}
+        onProfileUpdated={(updated) => {
+          setCurrentProfile(updated);
+          setFtp(updated.ftp);
+          setUserWeight(updated.weight);
+        }}
+      />
+    );
+  };
+
   const renderWorkoutLibrary = () => {
     if (!isWorkoutLibraryOpen) return null;
 
@@ -1515,7 +1673,30 @@ function App() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto pr-4 -mr-4" style={{ scrollBehavior: 'smooth' }}>
-            <Accordion type="single" collapsible className="w-full" defaultValue={categories[0]}>
+            <Accordion type="single" collapsible className="w-full" defaultValue={customWorkoutsList.length > 0 ? "Custom" : categories[0]}>
+              {customWorkoutsList.length > 0 && (
+                <AccordionItem value="Custom" key="Custom" className="border-white/10">
+                  <AccordionTrigger className="text-xl font-bold hover:no-underline text-neon-cyan py-4">My Custom Workouts</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pt-2">
+                      {customWorkoutsList.map(customWorkout => (
+                        <Card key={customWorkout.id} className="p-4 flex justify-between items-center bg-black/30 border-white/10 hover:bg-white/5 transition-colors group">
+                          <div className="flex-1">
+                            <h4 className="font-bold text-white text-lg">{customWorkout.name}</h4>
+                            <div className="flex items-center gap-3 text-sm text-gray-400">
+                              <span><Clock size={14} className="inline mr-1" /> {formatTime(customWorkout.totalDuration)}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button onClick={() => handleLoadCustomWorkout(customWorkout)} variant="primary" className="px-6 py-2">Load</Button>
+                            <Button onClick={(e: any) => handleDeleteCustomWorkout(customWorkout.id, e)} variant="danger" className="px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )}
               {categories.map(category => (
                 <AccordionItem value={category} key={category} className="border-white/10">
                   <AccordionTrigger className="text-xl font-bold hover:no-underline text-white py-4">{category}</AccordionTrigger>
@@ -1593,6 +1774,7 @@ function App() {
       const totalPower = session.rawData.reduce((sum, p) => sum + p.power, 0);
       const avgPower = session.rawData.length > 0 ? Math.round(totalPower / session.rawData.length) : 0;
       const workoutToSave: Omit<WorkoutRecording, 'id' | 'status' | 'stravaId'> = {
+        profileId: currentProfile?.id || 0,
         name: workout.name, date: new Date(session.startTime), duration: session.totalElapsedTime,
         avgPower, steps: workout.steps, rawData: session.rawData,
       };
@@ -1966,17 +2148,61 @@ function App() {
 
   // --- Main Layout ---
 
+  if (!currentProfile) {
+    return <ProfileSelector onProfileSelected={(p) => setCurrentProfile(p)} />;
+  }
+
   return (
-    <div className="min-h-screen selection:bg-neon-blue selection:text-white flex flex-col relative text-gray-200">
-      {!session.isActive && view !== 'HOME' && (
-        <button
-          onClick={() => setView('HOME')}
-          className="fixed top-5 left-5 z-40 text-gray-400 bg-idx-surface/60 backdrop-blur-xl hover:text-white hover:bg-white/10 p-4 rounded-full transition-all border border-white/10 shadow-lg"
-          aria-label="Go to Home"
-        >
-          <Home size={22} />
-        </button>
-      )}
+    <div className="min-h-screen selection:bg-neon-blue selection:text-white flex flex-col relative text-gray-200 overflow-x-hidden">
+      {/* Global Background Blobs */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-neon-blue/10 blur-[120px] rounded-full animate-pulse" />
+        <div className="absolute top-[20%] -right-[5%] w-[35%] h-[35%] bg-neon-purple/5 blur-[100px] rounded-full" />
+      </div>
+
+      {/* Header / Profile Info */}
+      <div className="max-w-7xl mx-auto w-full px-6 pt-8 flex justify-between items-center z-40">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {view !== 'HOME' && !session.isActive && (
+              <button
+                onClick={() => setView('HOME')}
+                className="w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all text-gray-400 hover:text-white"
+                aria-label="Back to Home"
+              >
+                <Home size={22} />
+              </button>
+            )}
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neon-blue to-neon-purple flex items-center justify-center p-[2px]">
+              <div className="w-full h-full rounded-full bg-idx-bg flex items-center justify-center overflow-hidden">
+                {currentProfile.avatar ? (
+                  <img src={`/avatars/${currentProfile.avatar}.png`} alt={currentProfile.name} className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-6 h-6 text-neon-blue" />
+                )}
+              </div>
+            </div>
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">{currentProfile.name}</h2>
+            <div className="flex items-center gap-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+              <Zap className="w-3 h-3 text-neon-cyan" />
+              <span>{ftp}W FTP</span>
+            </div>
+          </div>
+        </div>
+        {!session.isActive && (
+          <button
+            onClick={() => { setActiveProfileId(null); setCurrentProfile(null); }}
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl text-xs font-bold transition-all text-gray-400 hover:text-white"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Switch Profile</span>
+          </button>
+        )}
+      </div>
+
+
       <audio ref={audioRef} loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA" style={{ display: 'none' }} />
       {renderIntervalCreator()}
       {renderSaveModal()}
@@ -1984,7 +2210,76 @@ function App() {
       {renderFtpResultModal()}
       {renderAerobicDecouplingModal()}
 
-      {/* Main Content */}
+      {/* Help Dialog */}
+      <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+        <DialogContent className="max-w-[92vw] max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-2xl bg-idx-surface/95 backdrop-blur-xl border-white/10 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-3xl font-black text-white text-center flex items-center justify-center gap-3">
+              <HelpCircle className="text-neon-cyan" size={28} /> Guida WattFlow
+            </DialogTitle>
+            <DialogDescription className="text-gray-400 text-center pt-2">
+              Tutto quello che devi sapere per usare l'app al meglio.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 my-4 text-sm text-gray-300">
+            {[
+              {
+                title: '🔌 Connessione Trainer',
+                desc: 'Premi "Connect" per collegare il tuo smart trainer via Bluetooth. L\'app supporta il protocollo FTMS. Puoi anche collegare una fascia cardio separatamente.',
+              },
+              {
+                title: '🚴 Free Ride',
+                desc: 'Modalità pedalata libera. Imposti una pendenza simulata (0-100%) e pedali senza target di potenza. Puoi modificare la resistenza anche durante la sessione.',
+              },
+              {
+                title: '⚡ ERG Mode',
+                desc: 'Modalità a potenza costante. Imposti un target in Watt e il trainer si adatta automaticamente alla tua cadenza per mantenere la potenza fissa.',
+              },
+              {
+                title: '📋 Workout Editor',
+                desc: 'Crea allenamenti strutturati con intervalli. Puoi aggiungere zone di potenza, riscaldamento, defaticamento e serie di intervalli personalizzati. Salva i tuoi workout per riutilizzarli.',
+              },
+              {
+                title: '📚 Libreria Workout',
+                desc: 'Una raccolta di allenamenti pre-costruiti organizzati per categoria (endurance, soglia, VO2max, FTP test). Puoi anche caricare i tuoi workout salvati.',
+              },
+              {
+                title: '📊 Sessione Live',
+                desc: 'Durante ogni allenamento vedi in tempo reale: potenza, potenza media 3s, cadenza, velocità, W/kg, frequenza cardiaca, kCal e tempo. Puoi mettere in pausa, saltare intervalli e regolare la difficoltà.',
+              },
+              {
+                title: '🎯 Bias Difficoltà',
+                desc: 'Durante una sessione intervalli, puoi regolare la % di intensità in tempo reale con i tasti +/- per rendere il workout più facile o più difficile.',
+              },
+              {
+                title: '📈 Profilo & Metriche',
+                desc: 'Nella sezione Profilo trovi le metriche avanzate calcolate dal tuo storico: Critical Power (CP), W\' anaerobico, VO2max stimato, e il grafico PMC (Fitness/Fatica/Forma).',
+              },
+              {
+                title: '📂 Archivio Workout',
+                desc: 'Tutti i tuoi allenamenti sono salvati localmente. Puoi cercarli, ordinarli e scaricare il file .tcx per caricarli su Strava o altri servizi.',
+              },
+              {
+                title: '⏱️ Auto ERG Off',
+                desc: 'Durante gli intervalli, se la cadenza scende sotto 30 RPM per 5 secondi, l\'ERG mode si disattiva automaticamente per sicurezza. Si riattiva quando riprendi a pedalare.',
+              },
+            ].map((item, i) => (
+              <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h4 className="font-bold text-white text-base mb-2">{item.title}</h4>
+                <p className="text-gray-400 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="sm:justify-center">
+            <button
+              onClick={() => setIsHelpOpen(false)}
+              className="px-8 py-3 bg-gradient-to-r from-neon-cyan to-neon-blue text-white font-bold rounded-xl hover:shadow-[0_0_30px_rgba(6,182,212,0.4)] transition-all"
+            >
+              Ho capito!
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <main className={cn(
         "flex-1 w-full relative z-0",
         !session.isActive && 'overflow-y-auto'
@@ -1994,6 +2289,8 @@ function App() {
         {view === 'ERG_MODE' && renderErgMode()}
         {view === 'EDITOR' && renderEditor()}
         {view === 'SESSION' && renderSession()}
+        {view === 'HISTORY' && renderHistory()}
+        {view === 'PROFILE' && renderProfile()}
       </main>
 
       <Dialog open={isInstallHelpOpen} onOpenChange={setIsInstallHelpOpen}>
@@ -2020,7 +2317,38 @@ function App() {
         </DialogContent>
       </Dialog>
 
-      {/* {view === 'HOME' && <SyncManager />} */}
+      {/* Bottom Navigation */}
+      {['HOME', 'HISTORY', 'EDITOR', 'PROFILE'].includes(view) && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 pb-8 z-50 pointer-events-none">
+          <div className="max-w-md mx-auto relative pointer-events-auto">
+            <div className="flex items-center justify-between bg-idx-surface/80 backdrop-blur-2xl px-6 py-4 rounded-full border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.8)]">
+              {[
+                { id: 'HOME', icon: Home, label: 'Home', activeColor: 'text-neon-cyan' },
+                { id: 'HISTORY', icon: Clock, label: 'Storico', activeColor: 'text-neon-purple' },
+                { id: 'EDITOR', icon: BookOpen, label: 'Workouts', activeColor: 'text-neon-green' },
+                { id: 'PROFILE', icon: User, label: 'Profilo', activeColor: 'text-neon-blue' },
+              ].map(item => {
+                const isActive = view === item.id || (view === 'HOME' && item.id === 'HOME' && !['EDITOR', 'HISTORY'].includes(view));
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setView(item.id as ViewState);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`flex flex-col items-center gap-1.5 transition-all duration-300 relative ${isActive ? item.activeColor : 'text-gray-500 hover:text-gray-300'}`}
+                  >
+                    <item.icon size={22} className={isActive ? 'drop-shadow-[0_0_10px_currentColor]' : ''} />
+                    {isActive && (
+                      <span className="absolute -bottom-4 w-1.5 h-1.5 rounded-full bg-current shadow-[0_0_10px_currentColor]"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
