@@ -232,7 +232,6 @@ function App() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isWorkoutLibraryOpen, setIsWorkoutLibraryOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isPWA, setIsPWA] = useState(false);
   const [isInstallHelpOpen, setIsInstallHelpOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
@@ -265,19 +264,8 @@ function App() {
       setIsPWA(true);
     }
 
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-
     // Initialize auto background sync
     syncService.initAutoSync();
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
   }, []);
 
   useEffect(() => {
@@ -534,22 +522,6 @@ function App() {
   };
   const updateResistance = useCallback((level: number) => { setResistanceLevel(level); bleService.setResistance(level); }, []);
   const updateTargetPower = (watts: number) => { setTargetPower(watts); bleService.setTargetPower(watts); };
-
-  const handleInstallClick = () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      installPrompt.userChoice.then((choiceResult: { outcome: 'accepted' | 'dismissed' }) => {
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-        } else {
-          console.log('User dismissed the install prompt');
-        }
-        setInstallPrompt(null);
-      });
-    } else {
-      setIsInstallHelpOpen(true);
-    }
-  };
 
   const handleAddIntervals = () => {
     if (intervalCreatorData.repetitions <= 0) return;
@@ -1126,7 +1098,8 @@ function App() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-4 max-w-7xl mt-8">
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full px-4 max-w-7xl">
         {[
           { id: 'FREE_RIDE', icon: Gauge, title: 'Free Ride', desc: 'Manual slope control.', color: 'text-neon-cyan', gradient: 'from-neon-cyan/20 to-transparent' },
           { id: 'ERG_MODE', icon: Zap, title: 'ERG Mode', desc: 'Target power training.', color: 'text-neon-purple', gradient: 'from-neon-purple/20 to-transparent' },
@@ -2137,14 +2110,7 @@ function App() {
   // --- Main Layout ---
 
   if (!currentProfile) {
-    return (
-      <ProfileSelector
-        onProfileSelected={(p) => setCurrentProfile(p)}
-        installPrompt={installPrompt}
-        isPWA={isPWA}
-        onInstallClick={handleInstallClick}
-      />
-    );
+    return <ProfileSelector onProfileSelected={(p) => setCurrentProfile(p)} />;
   }
 
   return (
