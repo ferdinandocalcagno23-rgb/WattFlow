@@ -1683,6 +1683,7 @@ function App() {
         <HistoryDashboard
           workouts={userWorkouts}
           profile={currentProfile}
+          stravaAuthUrl={stravaService.getAuthUrl()}
           onDownloadTcx={handleDownloadHistory}
           onSyncWorkout={async (workout) => {
             const success = await syncService.syncSingleWorkout(workout);

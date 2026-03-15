@@ -8,6 +8,7 @@ interface HistoryDashboardProps {
     profile: UserProfile | null;
     onDownloadTcx: (workout: WorkoutRecording) => void;
     onSyncWorkout?: (workout: WorkoutRecording) => Promise<void>;
+    stravaAuthUrl?: string;
 }
 
 const formatTime = (seconds: number) => {
@@ -16,7 +17,7 @@ const formatTime = (seconds: number) => {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, profile, onDownloadTcx, onSyncWorkout }) => {
+export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, profile, onDownloadTcx, onSyncWorkout, stravaAuthUrl }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
     const [syncingWorkoutId, setSyncingWorkoutId] = useState<number | null>(null);
@@ -43,6 +44,27 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, pr
 
     return (
         <div className="space-y-4 pb-24">
+            {/* Strava Connection Banner */}
+            {!profile?.stravaToken?.access_token && stravaAuthUrl && (
+                <div className="bg-gradient-to-r from-orange-500/20 to-orange-600/10 border border-orange-500/20 rounded-3xl p-6 mb-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-orange-500 rounded-2xl shadow-lg shadow-orange-500/20">
+                            <UploadCloud className="w-8 h-8 text-white" />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="text-xl font-bold text-white mb-1">Sincronizza con Strava</h3>
+                            <p className="text-sm text-gray-400 max-w-sm">Collega il tuo account per caricare automaticamente i tuoi workout e analizzare le tue performance.</p>
+                        </div>
+                    </div>
+                    <a
+                        href={stravaAuthUrl}
+                        className="w-full md:w-auto px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-2xl transition-all duration-300 shadow-xl shadow-orange-500/20 hover:shadow-orange-500/40 text-center uppercase tracking-wider text-sm"
+                    >
+                        Connetti Ora
+                    </a>
+                </div>
+            )}
+
             {/* Search & Sort */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
                 <div className="flex gap-2 items-center w-full">
@@ -105,8 +127,8 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, pr
                                                 }}
                                                 disabled={syncingWorkoutId === workout.id}
                                                 className={`p-3 rounded-xl transition-all duration-300 shadow-lg ${syncingWorkoutId === workout.id
-                                                        ? 'bg-orange-500/20 text-orange-400 cursor-not-allowed'
-                                                        : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white shadow-orange-500/10 hover:shadow-orange-500/30'
+                                                    ? 'bg-orange-500/20 text-orange-400 cursor-not-allowed'
+                                                    : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white shadow-orange-500/10 hover:shadow-orange-500/30'
                                                     }`}
                                                 title="Carica su Strava"
                                             >
