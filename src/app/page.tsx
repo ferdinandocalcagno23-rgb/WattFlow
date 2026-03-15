@@ -13,6 +13,7 @@ import type { CustomWorkout, WorkoutRecording, UserProfile } from '@/types';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { syncService } from '@/services/syncService';
+import { stravaService } from '@/services/stravaService';
 // Development Mirror Branch
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
