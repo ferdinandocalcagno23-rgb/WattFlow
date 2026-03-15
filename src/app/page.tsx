@@ -1680,7 +1680,17 @@ function App() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-4xl font-black text-white uppercase tracking-tighter">Archivio Workout</h1>
         </div>
-        <HistoryDashboard workouts={userWorkouts} onDownloadTcx={handleDownloadHistory} />
+        <HistoryDashboard
+          workouts={userWorkouts}
+          profile={currentProfile}
+          onDownloadTcx={handleDownloadHistory}
+          onSyncWorkout={async (workout) => {
+            const success = await syncService.syncSingleWorkout(workout);
+            if (success) {
+              await loadUserWorkouts();
+            }
+          }}
+        />
       </div>
     );
   };

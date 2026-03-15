@@ -1,11 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { Download, Activity, Zap, Clock } from 'lucide-react';
-import type { WorkoutRecording } from '@/types';
+import { Download, Activity, Zap, Clock, UploadCloud, CheckCircle, Loader2 } from 'lucide-react';
+import type { WorkoutRecording, UserProfile } from '@/types';
 import { Search, ArrowUpDown } from 'lucide-react';
 
 interface HistoryDashboardProps {
     workouts: WorkoutRecording[];
+    profile: UserProfile | null;
     onDownloadTcx: (workout: WorkoutRecording) => void;
+    onSyncWorkout?: (workout: WorkoutRecording) => Promise<void>;
 }
 
 const formatTime = (seconds: number) => {
@@ -14,9 +16,10 @@ const formatTime = (seconds: number) => {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
 };
 
-export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, onDownloadTcx }) => {
+export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, profile, onDownloadTcx, onSyncWorkout }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+    const [syncingWorkoutId, setSyncingWorkoutId] = useState<number | null>(null);
 
     const filteredWorkouts = useMemo(() => {
         let result = workouts.filter(w => w.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -70,21 +73,62 @@ export const HistoryDashboard: React.FC<HistoryDashboardProps> = ({ workouts, on
                 <div className="space-y-3">
                     {filteredWorkouts.map((workout, i) => (
                         <div key={workout.id || i} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between hover:bg-white/10 transition-colors">
-                            <div className="flex flex-col gap-1">
-                                <span className="font-bold text-white text-base">{workout.name}</span>
+                            <div className="flex flex-col gap-1 w-full relative pr-16 md:pr-0 border-r border-transparent md:border-white/10 flex-grow md:flex-grow-0 md:w-3/4">
+                                <span className="font-bold text-white text-base truncate">{workout.name}</span>
                                 <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
                                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatTime(workout.duration)}</span>
                                     <span className="flex items-center gap-1"><Zap className="w-3 h-3 text-neon-cyan" /> {workout.avgPower}W Avg</span>
                                     <span>{new Date(workout.date).toLocaleDateString('it-IT')}</span>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => onDownloadTcx(workout)}
-                                className="p-3 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan hover:text-black rounded-xl transition-all duration-300 shadow-lg shadow-neon-cyan/10 hover:shadow-neon-cyan/30"
-                                title="Download TCX"
-                            >
-                                <Download className="w-5 h-5" />
-                            </button>
+
+                            {/* Actions Column */}
+                            <div className="flex items-center justify-end gap-2 md:w-1/4">
+                                {/* Strava Sync Interaction (only if profile is connected to Strava) */}
+                                {profile?.stravaToken?.access_token && (
+                                    <>
+                                        {workout.status === 'synced' ? (
+                                            <div className="p-3 text-green-500 flex items-center justify-center opacity-70" title="Sincronizzato su Strava">
+                                                <CheckCircle className="w-5 h-5" />
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={async () => {
+                                                    if (onSyncWorkout && workout.id) {
+                                                        setSyncingWorkoutId(workout.id);
+                                                        try {
+                                                            await onSyncWorkout(workout);
+                                                        } finally {
+                                                            setSyncingWorkoutId(null);
+                                                        }
+                                                    }
+                                                }}
+                                                disabled={syncingWorkoutId === workout.id}
+                                                className={`p-3 rounded-xl transition-all duration-300 shadow-lg ${syncingWorkoutId === workout.id
+                                                        ? 'bg-orange-500/20 text-orange-400 cursor-not-allowed'
+                                                        : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white shadow-orange-500/10 hover:shadow-orange-500/30'
+                                                    }`}
+                                                title="Carica su Strava"
+                                            >
+                                                {syncingWorkoutId === workout.id ? (
+                                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                                ) : (
+                                                    <UploadCloud className="w-5 h-5" />
+                                                )}
+                                            </button>
+                                        )}
+                                    </>
+                                )}
+
+                                {/* Download TCX Button */}
+                                <button
+                                    onClick={() => onDownloadTcx(workout)}
+                                    className="p-3 bg-neon-cyan/10 text-neon-cyan hover:bg-neon-cyan hover:text-black rounded-xl transition-all duration-300 shadow-lg shadow-neon-cyan/10 hover:shadow-neon-cyan/30"
+                                    title="Download TCX"
+                                >
+                                    <Download className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

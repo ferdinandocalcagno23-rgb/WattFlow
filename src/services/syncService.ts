@@ -52,6 +52,40 @@ class SyncService {
         }
     }
 
+    async syncSingleWorkout(workout: WorkoutRecording): Promise<boolean> {
+        if (!workout.id || !workout.profileId) return false;
+
+        // Don't sync if offline
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            console.log('[SyncService] Cannot sync single workout while offline.');
+            return false;
+        }
+
+        try {
+            const isAuthenticated = await stravaService.isAuthenticated(workout.profileId);
+            if (!isAuthenticated) {
+                console.log(`[SyncService] Profile ${workout.profileId} is not connected to Strava, cannot sync single workout.`);
+                return false;
+            }
+
+            console.log(`[SyncService] Uploading workout ${workout.id} for profile ${workout.profileId} to Strava...`);
+            const tcxBlob = createTcxBlob(workout);
+            const uploadResult = await stravaService.uploadActivity(workout.profileId, tcxBlob, workout.name, 'tcx');
+
+            await updateWorkoutStatus(workout.id, 'synced', uploadResult.id_str);
+            console.log(`[SyncService] Workout ${workout.id} synced with Strava Upload ID ${uploadResult.id_str}.`);
+            return true;
+
+        } catch (error: any) {
+            console.error(`[SyncService] Failed to sync single workout ${workout.id}:`, error);
+            if (error.response?.status === 401) {
+                console.log(`[SyncService] Strava authentication error for profile ${workout.profileId}. Disconnecting.`);
+                await stravaService.disconnect(workout.profileId);
+            }
+            return false;
+        }
+    }
+
     initAutoSync() {
         if (typeof window !== 'undefined') {
             window.addEventListener('online', () => {
