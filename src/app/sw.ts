@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist, CacheFirst, NetworkFirst, ExpirationPlugin } from 'serwist';
+import { Serwist, NetworkFirst, ExpirationPlugin, StaleWhileRevalidate, CacheFirst } from 'serwist';
 
 declare global {
     interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -15,7 +15,8 @@ const manifest = self.__SW_MANIFEST || [];
 
 const entriesToPrecache = [
     { url: '/', revision: Date.now().toString() },
-    { url: '/offline', revision: '2' }
+    { url: '/offline', revision: '10' }, // Use a clear revision to force update
+    { url: '/manifest.json', revision: '1' }
 ];
 
 entriesToPrecache.forEach(entry => {
@@ -28,7 +29,7 @@ const serwist = new Serwist({
     precacheEntries: manifest,
     skipWaiting: true,
     clientsClaim: true,
-    navigationPreload: true,
+    navigationPreload: false, // Disabled to ensure more robust offline cold-start interception
     runtimeCaching: [
         {
             matcher({ request }) {
@@ -36,22 +37,11 @@ const serwist = new Serwist({
             },
             handler: new NetworkFirst({
                 cacheName: 'navigations',
+                networkTimeoutSeconds: 5,
                 plugins: [
                     new ExpirationPlugin({
-                        maxEntries: 10,
+                        maxEntries: 50,
                         maxAgeSeconds: 24 * 60 * 60 * 7, // 7 days
-                    }),
-                ],
-            }),
-        },
-        {
-            matcher: ({ url }) => url.pathname === '/',
-            handler: new NetworkFirst({
-                cacheName: 'start-url',
-                plugins: [
-                    new ExpirationPlugin({
-                        maxEntries: 1,
-                        maxAgeSeconds: 24 * 60 * 60 * 30, // 30 days
                     }),
                 ],
             }),
@@ -63,15 +53,27 @@ const serwist = new Serwist({
                 cacheName: 'google-fonts',
                 plugins: [
                     new ExpirationPlugin({
-                        maxEntries: 10,
+                        maxEntries: 20,
                         maxAgeSeconds: 365 * 24 * 60 * 60, // 1 year
                     }),
                 ],
             }),
         },
+        {
+            matcher: /\.(?:js|css|woff2?|png|jpg|jpeg|svg|gif|ico)$/i,
+            handler: new StaleWhileRevalidate({
+                cacheName: 'static-resources',
+            }),
+        }
     ],
     fallbacks: {
         entries: [
+            {
+                url: '/', // Fallback to root for navigations
+                matcher({ request }) {
+                    return request.mode === 'navigate';
+                },
+            },
             {
                 url: '/offline',
                 matcher({ request }) {
