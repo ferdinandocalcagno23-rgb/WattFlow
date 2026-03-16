@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { PWAUpdater } from '@/components/pwa/PWAUpdater';
 
 export const metadata: Metadata = {
   title: 'WattFlow',
@@ -43,6 +44,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <PWAUpdater />
         {children}
       </body>
     </html>
