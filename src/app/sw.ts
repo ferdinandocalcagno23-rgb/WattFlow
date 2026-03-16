@@ -1,6 +1,6 @@
 import { defaultCache } from '@serwist/next/worker';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist, CacheFirst, ExpirationPlugin } from 'serwist';
+import { Serwist, CacheFirst, NetworkFirst, ExpirationPlugin } from 'serwist';
 
 declare global {
     interface ServiceWorkerGlobalScope extends SerwistGlobalConfig {
@@ -13,10 +13,9 @@ declare const self: ServiceWorkerGlobalScope;
 // Explicitly add essential routes to precache manifest if not already there
 const manifest = self.__SW_MANIFEST || [];
 
-// Add the root path and offline page to the manifest with the current timestamp to force update
 const entriesToPrecache = [
     { url: '/', revision: Date.now().toString() },
-    { url: '/offline', revision: '1' }
+    { url: '/offline', revision: '2' }
 ];
 
 entriesToPrecache.forEach(entry => {
@@ -29,11 +28,25 @@ const serwist = new Serwist({
     precacheEntries: manifest,
     skipWaiting: true,
     clientsClaim: true,
-    navigationPreload: false,
+    navigationPreload: true,
     runtimeCaching: [
         {
+            matcher({ request }) {
+                return request.mode === 'navigate';
+            },
+            handler: new NetworkFirst({
+                cacheName: 'navigations',
+                plugins: [
+                    new ExpirationPlugin({
+                        maxEntries: 10,
+                        maxAgeSeconds: 24 * 60 * 60 * 7, // 7 days
+                    }),
+                ],
+            }),
+        },
+        {
             matcher: ({ url }) => url.pathname === '/',
-            handler: new CacheFirst({
+            handler: new NetworkFirst({
                 cacheName: 'start-url',
                 plugins: [
                     new ExpirationPlugin({
