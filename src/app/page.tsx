@@ -7,7 +7,6 @@ import { bleService } from '@/services/bleService';
 import { TrainerData, HeartRateData, Workout, WorkoutSessionState, IntervalStep, RawDataPoint } from '@/types';
 import { ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis, Tooltip } from 'recharts';
 import { useWorkoutRecorder } from '@/hooks/useWorkoutRecorder';
-// import { SyncManager } from '@/components/SyncManager';
 import { getWorkoutsByProfile, addCustomWorkout, getCustomWorkoutsByProfile, deleteCustomWorkout } from '@/services/dbService';
 import type { CustomWorkout, WorkoutRecording, UserProfile } from '@/types';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
@@ -1719,7 +1718,7 @@ function App() {
 
     return (
       <Dialog open={isWorkoutLibraryOpen} onOpenChange={setIsWorkoutLibraryOpen}>
-        <DialogContent className="sm:max-w-[60vw] h-[80vh] flex flex-col bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
+        <DialogContent aria-describedby={undefined} className="sm:max-w-[60vw] h-[80vh] flex flex-col bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold text-white">Workout Library</DialogTitle>
             <DialogDescription className="text-gray-400">
@@ -1796,7 +1795,7 @@ function App() {
 
     return (
       <Dialog open={!!ftpTestResult} onOpenChange={(isOpen) => !isOpen && handleDeclineFtp()}>
-        <DialogContent className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
+        <DialogContent aria-describedby={undefined} className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold text-white text-center">FTP Test Complete!</DialogTitle>
             <DialogDescription className="text-gray-400 text-center pt-2">
@@ -1857,7 +1856,7 @@ function App() {
 
     return (
       <Dialog open={decouplingResult !== null} onOpenChange={(isOpen) => !isOpen && handleClose()}>
-        <DialogContent className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
+        <DialogContent aria-describedby={undefined} className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold text-white text-center">Workout Analysis</DialogTitle>
             <DialogDescription className="text-gray-400 text-center pt-2">
@@ -2266,7 +2265,7 @@ function App() {
 
       {/* Help Dialog */}
       <Dialog open={isHelpOpen} onOpenChange={setIsHelpOpen}>
-        <DialogContent className="max-w-[92vw] max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-2xl bg-idx-surface/95 backdrop-blur-xl border-white/10 text-white">
+        <DialogContent aria-describedby={undefined} className="max-w-[92vw] max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-2xl bg-idx-surface/95 backdrop-blur-xl border-white/10 text-white">
           <DialogHeader>
             <DialogTitle className="text-3xl font-black text-white text-center flex items-center justify-center gap-3">
               <HelpCircle className="text-neon-cyan" size={28} /> Guida WattFlow
@@ -2355,7 +2354,7 @@ function App() {
       {renderCompletionModal()}
 
       <Dialog open={isInstallHelpOpen} onOpenChange={setIsInstallHelpOpen}>
-        <DialogContent className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/90 backdrop-blur-xl border-white/10 text-white">
+        <DialogContent aria-describedby={undefined} className="max-w-[90vw] rounded-lg sm:max-w-md bg-idx-surface/90 backdrop-blur-xl border-white/10 text-white">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white text-center">Installazione Manuale</DialogTitle>
             <DialogDescription className="text-gray-400 text-center pt-2">
