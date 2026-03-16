@@ -12,12 +12,18 @@ declare const self: ServiceWorkerGlobalScope;
 
 // Explicitly add essential routes to precache manifest if not already there
 const manifest = self.__SW_MANIFEST || [];
-if (!manifest.some((entry) => (typeof entry === 'string' ? entry === '/' : entry.url === '/'))) {
-    manifest.push({ url: '/', revision: Date.now().toString() });
-}
-if (!manifest.some((entry) => (typeof entry === 'string' ? entry === '/offline' : entry.url === '/offline'))) {
-    manifest.push({ url: '/offline', revision: '1' });
-}
+
+// Add the root path and offline page to the manifest with the current timestamp to force update
+const entriesToPrecache = [
+    { url: '/', revision: Date.now().toString() },
+    { url: '/offline', revision: '1' }
+];
+
+entriesToPrecache.forEach(entry => {
+    if (!manifest.some((m) => (typeof m === 'string' ? m === entry.url : m.url === entry.url))) {
+        manifest.push(entry);
+    }
+});
 
 const serwist = new Serwist({
     precacheEntries: manifest,
@@ -25,6 +31,18 @@ const serwist = new Serwist({
     clientsClaim: true,
     navigationPreload: false,
     runtimeCaching: [
+        {
+            matcher: ({ url }) => url.pathname === '/',
+            handler: new CacheFirst({
+                cacheName: 'start-url',
+                plugins: [
+                    new ExpirationPlugin({
+                        maxEntries: 1,
+                        maxAgeSeconds: 24 * 60 * 60 * 30, // 30 days
+                    }),
+                ],
+            }),
+        },
         ...defaultCache,
         {
             matcher: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,

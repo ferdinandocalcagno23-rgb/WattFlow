@@ -7,7 +7,6 @@ import { bleService } from '@/services/bleService';
 import { TrainerData, HeartRateData, Workout, WorkoutSessionState, IntervalStep, RawDataPoint } from '@/types';
 import { ResponsiveContainer, AreaChart, Area, Line, XAxis, YAxis, Tooltip } from 'recharts';
 import { useWorkoutRecorder } from '@/hooks/useWorkoutRecorder';
-// import { SyncManager } from '@/components/SyncManager';
 import { getWorkoutsByProfile, addCustomWorkout, getCustomWorkoutsByProfile, deleteCustomWorkout } from '@/services/dbService';
 import type { CustomWorkout, WorkoutRecording, UserProfile } from '@/types';
 import { PRE_MADE_WORKOUTS, PreMadeWorkout } from '@/lib/workouts';
