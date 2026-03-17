@@ -12,13 +12,11 @@ declare const self: ServiceWorkerGlobalScope;
 
 const manifest = self.__SW_MANIFEST || [];
 
-// Use a very specific revision to ensure cache invalidation
-const CACHE_REVISION = 'v13-' + Date.now();
-
+// Robust precaching for the App Shell
 const entriesToPrecache = [
-    { url: '/', revision: CACHE_REVISION },
-    { url: '/offline', revision: CACHE_REVISION },
-    { url: '/manifest.json', revision: '1' }
+    { url: '/', revision: 'v14-final' },
+    { url: '/offline', revision: 'v14-final' },
+    { url: '/manifest.json', revision: 'v14-final' }
 ];
 
 entriesToPrecache.forEach(entry => {
@@ -34,28 +32,15 @@ const serwist = new Serwist({
     navigationPreload: false,
     runtimeCaching: [
         {
-            // Aggressive caching for the root to ensure it's always ready offline
-            matcher: ({ url }) => url.pathname === '/',
-            handler: new StaleWhileRevalidate({
-                cacheName: 'app-shell',
-                plugins: [
-                    new ExpirationPlugin({
-                        maxEntries: 1,
-                        maxAgeSeconds: 24 * 60 * 60 * 30, // 30 days
-                    }),
-                ],
-            }),
-        },
-        {
+            // For navigation requests, use StaleWhileRevalidate to ensure instant offline load
             matcher({ request }) {
                 return request.mode === 'navigate';
             },
-            handler: new NetworkFirst({
+            handler: new StaleWhileRevalidate({
                 cacheName: 'navigations',
-                networkTimeoutSeconds: 3,
                 plugins: [
                     new ExpirationPlugin({
-                        maxEntries: 50,
+                        maxEntries: 10,
                         maxAgeSeconds: 24 * 60 * 60 * 7, // 7 days
                     }),
                 ],
@@ -82,12 +67,12 @@ const serwist = new Serwist({
 });
 
 self.addEventListener('install', () => {
-    console.log('[Service Worker] Installed!');
+    console.log('[PWA] Service Worker installing...');
     (self as any).skipWaiting();
 });
 
 self.addEventListener('activate', (event: any) => {
-    console.log('[Service Worker] Activated!');
+    console.log('[PWA] Service Worker activating...');
     event.waitUntil((self as any).clients.claim());
 });
 
