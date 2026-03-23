@@ -29,7 +29,7 @@ function StravaExchangeTokenContent() {
 
       const activeProfileId = getActiveProfileId();
       if (!activeProfileId) {
-        setError('No active profile found. Please select a profile first.');
+        setError('Nessun profilo attivo trovato. Per favore, seleziona un profilo prima di collegare Strava.');
         return;
       }
 

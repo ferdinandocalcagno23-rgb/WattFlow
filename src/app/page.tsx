@@ -195,6 +195,58 @@ const WorkoutStepsList = React.memo(({ steps, currentStepIndex, ftp, difficultyB
 });
 WorkoutStepsList.displayName = 'WorkoutStepsList';
 
+// --- Workout Preview SVG ---
+const WorkoutPreviewSVG = React.memo(({ steps, className = '' }: { steps: import('@/lib/workouts').PreMadeIntervalStep[], className?: string }) => {
+  if (!steps || steps.length === 0) return null;
+  const W = 240, H = 60;
+  const maxPower = Math.max(...steps.map(s => Math.max(s.targetPowerPercent, s.startPowerPercent ?? 0)), 0.5);
+  const totalDuration = steps.reduce((a, s) => a + s.duration, 0);
+  if (totalDuration === 0) return null;
+
+  const getColor = (pct: number) => {
+    if (pct < 0.56) return '#94a3b8';
+    if (pct < 0.76) return '#06b6d4';
+    if (pct < 0.91) return '#10b981';
+    if (pct < 1.06) return '#f59e0b';
+    if (pct < 1.21) return '#ef4444';
+    return '#8b5cf6';
+  };
+
+  let x = 0;
+  const rects: React.ReactNode[] = [];
+  steps.forEach((step, i) => {
+    const w = (step.duration / totalDuration) * W;
+    if (step.type === 'ramp' && step.startPowerPercent !== undefined) {
+      const y1 = H - (step.startPowerPercent / maxPower) * H;
+      const y2 = H - (step.targetPowerPercent / maxPower) * H;
+      const color = getColor((step.startPowerPercent + step.targetPowerPercent) / 2);
+      rects.push(
+        <polygon key={i}
+          points={`${x},${H} ${x},${y1} ${x + w},${y2} ${x + w},${H}`}
+          fill={color} fillOpacity={0.85}
+        />
+      );
+    } else {
+      const h = (step.targetPowerPercent / maxPower) * H;
+      const color = getColor(step.targetPowerPercent);
+      rects.push(
+        <rect key={i} x={x} y={H - h} width={Math.max(w - 0.5, 0.5)} height={h}
+          fill={color} fillOpacity={0.85} rx={1}
+        />
+      );
+    }
+    x += w;
+  });
+
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={className}>
+      <rect width={W} height={H} fill="#00000030" rx={4} />
+      {rects}
+    </svg>
+  );
+});
+WorkoutPreviewSVG.displayName = 'WorkoutPreviewSVG';
+
 function App() {
   // --- Global State ---
   const [view, setView] = useState<ViewState>('HOME');
@@ -1297,9 +1349,9 @@ function App() {
     // Helper to add interval
     const addStep = (type: 'steady' | 'ramp', zoneIndex: number, label: string) => {
       const zone = ZONES[zoneIndex];
-      const factor = (zone.min + (zone.max > 2 ? 1.5 : zone.max)) / 2;
-      const safeFactor = factor === 0 ? 0.4 : factor;
-      const power = Math.round(ftp * safeFactor);
+      const defaultPercents = [0.50, 0.65, 0.83, 0.98, 1.13, 1.50, 2.50];
+      const powerPercent = defaultPercents[zoneIndex] || 0.50;
+      const power = Math.round(ftp * powerPercent);
 
       let step: IntervalStep = {
         id: Math.random().toString(36).substr(2, 9),
@@ -1755,15 +1807,26 @@ function App() {
                   <AccordionTrigger className="text-xl font-bold hover:no-underline text-white py-4">{category}</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-4 pt-2">
-                      {PRE_MADE_WORKOUTS.filter(w => w.category === category).map(premadeWorkout => (
-                        <Card key={premadeWorkout.id} className="p-4 flex justify-between items-center bg-black/30 border-white/10 hover:bg-white/5 transition-colors">
-                          <div>
-                            <h4 className="font-bold text-white text-lg">{premadeWorkout.name}</h4>
-                            <p className="text-sm text-gray-400">{premadeWorkout.description}</p>
-                          </div>
-                          <Button onClick={() => handleLoadWorkout(premadeWorkout)} variant="primary" className="px-6 py-2">Load</Button>
-                        </Card>
-                      ))}
+                      {PRE_MADE_WORKOUTS.filter(w => w.category === category).map(premadeWorkout => {
+                        const totalSecs = premadeWorkout.steps.reduce((a, s) => a + s.duration, 0);
+                        const totalMins = Math.round(totalSecs / 60);
+                        return (
+                          <Card key={premadeWorkout.id} className="p-4 bg-black/30 border-white/10 hover:bg-white/5 transition-colors">
+                            <div className="flex justify-between items-start gap-3 mb-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-bold text-white text-base leading-tight">{premadeWorkout.name}</h4>
+                                <p className="text-xs text-gray-400 mt-0.5 leading-snug">{premadeWorkout.description}</p>
+                              </div>
+                              <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
+                                <Clock size={12} />
+                                <span>{totalMins} min</span>
+                              </div>
+                            </div>
+                            <WorkoutPreviewSVG steps={premadeWorkout.steps} className="w-full rounded-lg mb-3" />
+                            <Button onClick={() => handleLoadWorkout(premadeWorkout)} variant="primary" className="w-full py-2 text-sm">Carica Workout</Button>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </AccordionContent>
                 </AccordionItem>
