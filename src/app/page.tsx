@@ -1505,22 +1505,24 @@ function App() {
           )}
 
           {selectedStepId && (
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-xl border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-6 z-30 animate-slide-up ring-1 ring-white/10">
-              {['duration', 'targetPower'].map(field => (
-                <div key={field} className="flex flex-col items-center">
-                  <label className="text-[10px] text-gray-500 font-bold block uppercase mb-1">{field === 'duration' ? 'Secs' : 'Watts'}</label>
-                  <input type="number" className="bg-white/5 rounded-lg text-white w-20 p-1 text-center font-bold border border-white/10 focus:border-neon-blue focus:bg-white/10 outline-none transition-colors"
-                    value={(workout.steps.find(s => s.id === selectedStepId) as any)?.[field] || 0}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setWorkout(w => ({ ...w, steps: w.steps.map(s => s.id === selectedStepId ? { ...s, [field]: val } : s) }))
-                    }}
-                  />
-                </div>
-              ))}
-              <div className="h-8 w-px bg-white/10"></div>
-              <button onClick={() => { setWorkout(w => ({ ...w, steps: w.steps.filter(s => s.id !== selectedStepId) })); setSelectedStepId(null); }} className="p-2 hover:bg-red-500/20 hover:text-red-400 text-gray-400 rounded-lg transition-colors"><Trash2 size={18} /></button>
-              <button onClick={() => setSelectedStepId(null)} className="p-2 hover:bg-white/10 hover:text-white text-gray-400 rounded-lg transition-colors"><X size={18} /></button>
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30">
+              <div className="animate-slide-up bg-black/90 backdrop-blur-xl border border-white/20 p-4 rounded-2xl shadow-2xl flex items-center gap-6 ring-1 ring-white/10">
+                {['duration', 'targetPower'].map(field => (
+                  <div key={field} className="flex flex-col items-center">
+                    <label className="text-[10px] text-gray-500 font-bold block uppercase mb-1">{field === 'duration' ? 'Secs' : 'Watts'}</label>
+                    <input type="number" className="bg-white/5 rounded-lg text-white w-20 p-1 text-center font-bold border border-white/10 focus:border-neon-blue focus:bg-white/10 outline-none transition-colors"
+                      value={(workout.steps.find(s => s.id === selectedStepId) as any)?.[field] || 0}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setWorkout(w => ({ ...w, steps: w.steps.map(s => s.id === selectedStepId ? { ...s, [field]: val } : s) }))
+                      }}
+                    />
+                  </div>
+                ))}
+                <div className="h-8 w-px bg-white/10"></div>
+                <button onClick={() => { setWorkout(w => ({ ...w, steps: w.steps.filter(s => s.id !== selectedStepId) })); setSelectedStepId(null); }} className="p-2 hover:bg-red-500/20 hover:text-red-400 text-gray-400 rounded-lg transition-colors"><Trash2 size={18} /></button>
+                <button onClick={() => setSelectedStepId(null)} className="p-2 hover:bg-white/10 hover:text-white text-gray-400 rounded-lg transition-colors"><X size={18} /></button>
+              </div>
             </div>
           )}
         </Card>
@@ -1816,8 +1818,8 @@ function App() {
               key={cat}
               onClick={() => setLibraryCategory(cat)}
               className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold border transition-all duration-200 ${activeCategory === cat
-                  ? `${categoryColors[cat] || 'border-white text-white'} bg-white/10`
-                  : 'border-white/10 text-gray-400 hover:bg-white/5'
+                ? `${categoryColors[cat] || 'border-white text-white'} bg-white/10`
+                : 'border-white/10 text-gray-400 hover:bg-white/5'
                 }`}
             >
               {cat}
