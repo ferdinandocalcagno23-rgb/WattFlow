@@ -1863,16 +1863,20 @@ function App() {
                     return (
                       <div
                         key={pw.id}
-                        className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col hover:bg-white/10 transition-colors"
+                        className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col hover:bg-white/10 transition-colors"
                         style={{ gridRow: ri + 1, gridColumn: ci + 1 }}
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <h4 className="font-bold text-white text-sm leading-tight flex-1 pr-2">{pw.name}</h4>
-                          <span className="text-xs text-gray-500 shrink-0 flex items-center gap-1"><Clock size={10} />{totalMins}m</span>
+                        {/* Title row */}
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-bold text-white text-sm leading-tight flex-1 pr-2 truncate">{pw.name}</h4>
+                          <span className="text-[10px] text-gray-500 shrink-0 flex items-center gap-1"><Clock size={9} />{totalMins}m</span>
                         </div>
-                        <p className="text-[11px] text-gray-400 leading-snug mb-3 flex-1">{pw.description}</p>
-                        <WorkoutPreviewSVG steps={pw.steps} className="w-full rounded-lg mb-3" />
-                        <Button onClick={() => handleLoadWorkout(pw)} variant="primary" className="w-full py-1.5 text-xs">Carica Workout</Button>
+                        {/* SVG Preview */}
+                        <WorkoutPreviewSVG steps={pw.steps} className="w-full rounded-lg mb-2" />
+                        {/* Load button */}
+                        <Button onClick={() => handleLoadWorkout(pw)} variant="primary" className="w-full py-1.5 text-xs mb-2">Carica Workout</Button>
+                        {/* Compact description strip */}
+                        <p className="text-[10px] text-gray-500 leading-tight truncate">{pw.description}</p>
                       </div>
                     );
                   })
