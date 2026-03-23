@@ -283,6 +283,7 @@ function App() {
   const [avg3sPower, setAvg3sPower] = useState(0);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isWorkoutLibraryOpen, setIsWorkoutLibraryOpen] = useState(false);
+  const [libraryCategory, setLibraryCategory] = useState<string>('');
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPWA, setIsPWA] = useState(false);
   const [isInstallHelpOpen, setIsInstallHelpOpen] = useState(false);
@@ -1766,75 +1767,119 @@ function App() {
   const renderWorkoutLibrary = () => {
     if (!isWorkoutLibraryOpen) return null;
 
-    const categories = Array.from(new Set(PRE_MADE_WORKOUTS.map(w => w.category)));
+    const allCategories: string[] = customWorkoutsList.length > 0
+      ? ['Custom', ...Array.from(new Set(PRE_MADE_WORKOUTS.map(w => w.category)))]
+      : Array.from(new Set(PRE_MADE_WORKOUTS.map(w => w.category)));
+
+    const activeCategory = libraryCategory || allCategories[0];
+
+    const workoutsForCategory = activeCategory === 'Custom'
+      ? null
+      : PRE_MADE_WORKOUTS.filter(w => w.category === activeCategory);
+
+    // Split into 2 rows: first half + second half
+    const buildRows = <T,>(items: T[]): [T[], T[]] => {
+      const mid = Math.ceil(items.length / 2);
+      return [items.slice(0, mid), items.slice(mid)];
+    };
+
+    const categoryColors: Record<string, string> = {
+      Custom: 'border-neon-cyan text-neon-cyan',
+      Recovery: 'border-slate-400 text-slate-300',
+      Endurance: 'border-cyan-400 text-cyan-300',
+      'Sweet Spot': 'border-emerald-400 text-emerald-300',
+      Threshold: 'border-amber-400 text-amber-300',
+      'VO2 Max': 'border-red-400 text-red-300',
+      Testing: 'border-purple-400 text-purple-300',
+    };
 
     return (
-      <Dialog open={isWorkoutLibraryOpen} onOpenChange={setIsWorkoutLibraryOpen}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-[60vw] h-[80vh] flex flex-col bg-idx-surface/80 backdrop-blur-xl border-white/10 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-3xl font-bold text-white">Workout Library</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Select a pre-made workout to load it into the editor. Power targets are based on your current FTP of {ftp}W.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto pr-4 -mr-4" style={{ scrollBehavior: 'smooth' }}>
-            <Accordion type="single" collapsible className="w-full" defaultValue={customWorkoutsList.length > 0 ? "Custom" : categories[0]}>
-              {customWorkoutsList.length > 0 && (
-                <AccordionItem value="Custom" key="Custom" className="border-white/10">
-                  <AccordionTrigger className="text-xl font-bold hover:no-underline text-neon-cyan py-4">My Custom Workouts</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      {customWorkoutsList.map(customWorkout => (
-                        <Card key={customWorkout.id} className="p-4 flex justify-between items-center bg-black/30 border-white/10 hover:bg-white/5 transition-colors group">
-                          <div className="flex-1">
-                            <h4 className="font-bold text-white text-lg">{customWorkout.name}</h4>
-                            <div className="flex items-center gap-3 text-sm text-gray-400">
-                              <span><Clock size={14} className="inline mr-1" /> {formatTime(customWorkout.totalDuration)}</span>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button onClick={() => handleLoadCustomWorkout(customWorkout)} variant="primary" className="px-6 py-2">Load</Button>
-                            <Button onClick={(e: any) => handleDeleteCustomWorkout(customWorkout.id, e)} variant="danger" className="px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={16} /></Button>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              )}
-              {categories.map(category => (
-                <AccordionItem value={category} key={category} className="border-white/10">
-                  <AccordionTrigger className="text-xl font-bold hover:no-underline text-white py-4">{category}</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-4 pt-2">
-                      {PRE_MADE_WORKOUTS.filter(w => w.category === category).map(premadeWorkout => {
-                        const totalSecs = premadeWorkout.steps.reduce((a, s) => a + s.duration, 0);
-                        const totalMins = Math.round(totalSecs / 60);
-                        return (
-                          <Card key={premadeWorkout.id} className="p-4 bg-black/30 border-white/10 hover:bg-white/5 transition-colors">
-                            <div className="flex justify-between items-start gap-3 mb-3">
-                              <div className="flex-1 min-w-0">
-                                <h4 className="font-bold text-white text-base leading-tight">{premadeWorkout.name}</h4>
-                                <p className="text-xs text-gray-400 mt-0.5 leading-snug">{premadeWorkout.description}</p>
-                              </div>
-                              <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
-                                <Clock size={12} />
-                                <span>{totalMins} min</span>
-                              </div>
-                            </div>
-                            <WorkoutPreviewSVG steps={premadeWorkout.steps} className="w-full rounded-lg mb-3" />
-                            <Button onClick={() => handleLoadWorkout(premadeWorkout)} variant="primary" className="w-full py-2 text-sm">Carica Workout</Button>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+      <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-xl flex flex-col text-white animate-fade-in">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-white/10 shrink-0">
+          <div>
+            <h2 className="text-2xl font-bold">Workout Library</h2>
+            <p className="text-sm text-gray-400 mt-0.5">FTP attuale: {ftp}W</p>
           </div>
-        </DialogContent>
-      </Dialog>
+          <button
+            onClick={() => setIsWorkoutLibraryOpen(false)}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex gap-2 px-6 py-3 overflow-x-auto shrink-0 scrollbar-none">
+          {allCategories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setLibraryCategory(cat)}
+              className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold border transition-all duration-200 ${activeCategory === cat
+                  ? `${categoryColors[cat] || 'border-white text-white'} bg-white/10`
+                  : 'border-white/10 text-gray-400 hover:bg-white/5'
+                }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Workout Grid – 2 rows, horizontal scroll */}
+        <div className="flex-1 overflow-hidden px-6 pb-6">
+          {activeCategory === 'Custom' ? (
+            <div className="grid grid-flow-col grid-rows-2 gap-4 h-full overflow-x-auto py-2" style={{ gridAutoColumns: '280px' }}>
+              {customWorkoutsList.map(cw => (
+                <div key={cw.id} className="bg-white/5 border border-neon-cyan/20 rounded-2xl p-4 flex flex-col justify-between hover:bg-white/10 transition-colors group">
+                  <div>
+                    <h4 className="font-bold text-white text-base">{cw.name}</h4>
+                    <p className="text-xs text-gray-400 mt-1 flex items-center gap-1"><Clock size={11} /> {formatTime(cw.totalDuration)}</p>
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <Button onClick={() => handleLoadCustomWorkout(cw)} variant="primary" className="flex-1 py-2 text-sm">Carica</Button>
+                    <Button onClick={(e: any) => handleDeleteCustomWorkout(cw.id, e)} variant="danger" className="px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : workoutsForCategory && (() => {
+            const [row1, row2] = buildRows(workoutsForCategory);
+            const allRows = [row1, row2];
+            const colCount = Math.max(row1.length, row2.length);
+            return (
+              <div
+                className="grid gap-4 h-full overflow-x-auto py-2"
+                style={{
+                  gridTemplateRows: 'repeat(2, 1fr)',
+                  gridTemplateColumns: `repeat(${colCount}, 260px)`,
+                  gridAutoFlow: 'column',
+                }}
+              >
+                {allRows.flatMap((row, ri) =>
+                  row.map((pw, ci) => {
+                    const totalMins = Math.round(pw.steps.reduce((a, s) => a + s.duration, 0) / 60);
+                    return (
+                      <div
+                        key={pw.id}
+                        className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col hover:bg-white/10 transition-colors"
+                        style={{ gridRow: ri + 1, gridColumn: ci + 1 }}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-white text-sm leading-tight flex-1 pr-2">{pw.name}</h4>
+                          <span className="text-xs text-gray-500 shrink-0 flex items-center gap-1"><Clock size={10} />{totalMins}m</span>
+                        </div>
+                        <p className="text-[11px] text-gray-400 leading-snug mb-3 flex-1">{pw.description}</p>
+                        <WorkoutPreviewSVG steps={pw.steps} className="w-full rounded-lg mb-3" />
+                        <Button onClick={() => handleLoadWorkout(pw)} variant="primary" className="w-full py-1.5 text-xs">Carica Workout</Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
     );
   };
 
