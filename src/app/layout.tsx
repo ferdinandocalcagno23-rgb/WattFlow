@@ -2,14 +2,15 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { PWAUpdater } from '@/components/pwa/PWAUpdater';
 
+const appName = process.env.NEXT_PUBLIC_APP_NAME || 'WattFlow';
+
 export const metadata: Metadata = {
-  title: 'WattFlow',
+  title: appName,
   description: 'The ultimate indoor cycling companion.',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'WattFlow',
+    title: appName,
   },
   formatDetection: {
     telephone: false,
