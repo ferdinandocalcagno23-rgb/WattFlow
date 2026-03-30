@@ -3,6 +3,7 @@ import './globals.css';
 import { PWAUpdater } from '@/components/pwa/PWAUpdater';
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || 'WattFlow';
+const isAleflow = appName.toLowerCase() === 'aleflow';
 
 export const metadata: Metadata = {
   title: appName,
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    apple: '/icons/icon-192x192.png',
+    apple: isAleflow ? '/icons/icon-aleflow-192.png' : '/icons/icon-192x192.png',
   },
 };
 
